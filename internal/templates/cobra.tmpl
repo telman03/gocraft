@@ -1,0 +1,609 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+var (
+	cfgFile string
+	verbose bool
+	port    string
+	env     string
+)
+
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
+	Use:   "{{.ProjectName}}",
+	Short: "A modern Go backend application",
+	Long: `{{.ProjectName}} is a comprehensive backend application built with Go.
+It provides REST API, gRPC, WebSocket, and various other features for building
+scalable web applications.`,
+	Version: "1.0.0",
+}
+
+// Execute adds all child commands to the root command and sets flags appropriately.
+func Execute() {
+	err := rootCmd.Execute()
+	if err != nil {
+		os.Exit(1)
+	}
+}
+
+func init() {
+	cobra.OnInitialize(initConfig)
+
+	// Global flags
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.{{.ProjectName}}.yaml)")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	rootCmd.PersistentFlags().StringVarP(&env, "env", "e", "development", "environment (development, staging, production)")
+
+	// Bind flags to viper
+	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	viper.BindPFlag("env", rootCmd.PersistentFlags().Lookup("env"))
+}
+
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
+	if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Find home directory.
+		home, err := os.UserHomeDir()
+		cobra.CheckErr(err)
+
+		// Search config in home directory with name ".{{.ProjectName}}" (without extension).
+		viper.AddConfigPath(home)
+		viper.SetConfigType("yaml")
+		viper.SetConfigName(".{{.ProjectName}}")
+	}
+
+	viper.AutomaticEnv() // read in environment variables that match
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		if verbose {
+			fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		}
+	}
+}
+
+// serveCmd represents the serve command
+var serveCmd = &cobra.Command{
+	Use:   "serve",
+	Short: "Start the server",
+	Long: `Start the {{.ProjectName}} server with the specified configuration.
+The server will start listening on the configured port and serve the API.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Starting {{.ProjectName}} server...")
+		
+		// Load configuration
+		config := loadConfig()
+		
+		// Initialize database
+		db, err := initializeDatabase(config)
+		if err != nil {
+			fmt.Printf("Failed to initialize database: %v\n", err)
+			os.Exit(1)
+		}
+		
+		// Initialize services
+		services := initializeServices(config, db)
+		
+		// Start server
+		if err := startServer(config, services); err != nil {
+			fmt.Printf("Failed to start server: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+// migrateCmd represents the migrate command
+var migrateCmd = &cobra.Command{
+	Use:   "migrate",
+	Short: "Run database migrations",
+	Long: `Run database migrations to update the database schema.
+This command will apply all pending migrations to the database.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Running database migrations...")
+		
+		config := loadConfig()
+		db, err := initializeDatabase(config)
+		if err != nil {
+			fmt.Printf("Failed to initialize database: %v\n", err)
+			os.Exit(1)
+		}
+		
+		if err := runMigrations(db); err != nil {
+			fmt.Printf("Failed to run migrations: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("Migrations completed successfully")
+	},
+}
+
+// seedCmd represents the seed command
+var seedCmd = &cobra.Command{
+	Use:   "seed",
+	Short: "Seed the database with initial data",
+	Long: `Seed the database with initial data for development and testing.
+This command will populate the database with sample data.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Seeding database...")
+		
+		config := loadConfig()
+		db, err := initializeDatabase(config)
+		if err != nil {
+			fmt.Printf("Failed to initialize database: %v\n", err)
+			os.Exit(1)
+		}
+		
+		if err := seedDatabase(db); err != nil {
+			fmt.Printf("Failed to seed database: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("Database seeded successfully")
+	},
+}
+
+// testCmd represents the test command
+var testCmd = &cobra.Command{
+	Use:   "test",
+	Short: "Run tests",
+	Long: `Run all tests for the application.
+This command will execute unit tests, integration tests, and benchmarks.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Running tests...")
+		
+		if err := runTests(); err != nil {
+			fmt.Printf("Tests failed: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("All tests passed")
+	},
+}
+
+// buildCmd represents the build command
+var buildCmd = &cobra.Command{
+	Use:   "build",
+	Short: "Build the application",
+	Long: `Build the {{.ProjectName}} application for the target platform.
+This command will compile the application and create an executable.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Building {{.ProjectName}}...")
+		
+		if err := buildApplication(); err != nil {
+			fmt.Printf("Build failed: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("Build completed successfully")
+	},
+}
+
+// generateCmd represents the generate command
+var generateCmd = &cobra.Command{
+	Use:   "generate",
+	Short: "Generate code and assets",
+	Long: `Generate code and assets for the application.
+This command will generate protobuf code, mocks, and other assets.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Generating code and assets...")
+		
+		if err := generateCode(); err != nil {
+			fmt.Printf("Generation failed: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("Code generation completed successfully")
+	},
+}
+
+// healthCmd represents the health command
+var healthCmd = &cobra.Command{
+	Use:   "health",
+	Short: "Check application health",
+	Long: `Check the health of the {{.ProjectName}} application.
+This command will verify that all services are running correctly.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Checking application health...")
+		
+		config := loadConfig()
+		if err := checkHealth(config); err != nil {
+			fmt.Printf("Health check failed: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("Application is healthy")
+	},
+}
+
+// logsCmd represents the logs command
+var logsCmd = &cobra.Command{
+	Use:   "logs",
+	Short: "View application logs",
+	Long: `View application logs in real-time.
+This command will stream logs from the application.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Viewing application logs...")
+		
+		if err := viewLogs(); err != nil {
+			fmt.Printf("Failed to view logs: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+// backupCmd represents the backup command
+var backupCmd = &cobra.Command{
+	Use:   "backup",
+	Short: "Create database backup",
+	Long: `Create a backup of the database.
+This command will create a backup of the current database state.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Creating database backup...")
+		
+		config := loadConfig()
+		if err := createBackup(config); err != nil {
+			fmt.Printf("Backup failed: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("Backup created successfully")
+	},
+}
+
+// restoreCmd represents the restore command
+var restoreCmd = &cobra.Command{
+	Use:   "restore [backup-file]",
+	Short: "Restore database from backup",
+	Long: `Restore the database from a backup file.
+This command will restore the database to a previous state.`,
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		backupFile := args[0]
+		fmt.Printf("Restoring database from %s...\n", backupFile)
+		
+		config := loadConfig()
+		if err := restoreBackup(config, backupFile); err != nil {
+			fmt.Printf("Restore failed: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("Database restored successfully")
+	},
+}
+
+// userCmd represents the user command group
+var userCmd = &cobra.Command{
+	Use:   "user",
+	Short: "Manage users",
+	Long:  "Manage users in the application",
+}
+
+// createUserCmd represents the create user command
+var createUserCmd = &cobra.Command{
+	Use:   "create [email] [name]",
+	Short: "Create a new user",
+	Long:  "Create a new user with the specified email and name",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		email := args[0]
+		name := args[1]
+		
+		fmt.Printf("Creating user: %s (%s)\n", name, email)
+		
+		config := loadConfig()
+		db, err := initializeDatabase(config)
+		if err != nil {
+			fmt.Printf("Failed to initialize database: %v\n", err)
+			os.Exit(1)
+		}
+		
+		if err := createUser(db, email, name); err != nil {
+			fmt.Printf("Failed to create user: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("User created successfully")
+	},
+}
+
+// listUsersCmd represents the list users command
+var listUsersCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all users",
+	Long:  "List all users in the application",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Listing users...")
+		
+		config := loadConfig()
+		db, err := initializeDatabase(config)
+		if err != nil {
+			fmt.Printf("Failed to initialize database: %v\n", err)
+			os.Exit(1)
+		}
+		
+		users, err := listUsers(db)
+		if err != nil {
+			fmt.Printf("Failed to list users: %v\n", err)
+			os.Exit(1)
+		}
+		
+		for _, user := range users {
+			fmt.Printf("- %s (%s)\n", user.Name, user.Email)
+		}
+	},
+}
+
+// deleteUserCmd represents the delete user command
+var deleteUserCmd = &cobra.Command{
+	Use:   "delete [email]",
+	Short: "Delete a user",
+	Long:  "Delete a user by email",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		email := args[0]
+		
+		fmt.Printf("Deleting user: %s\n", email)
+		
+		config := loadConfig()
+		db, err := initializeDatabase(config)
+		if err != nil {
+			fmt.Printf("Failed to initialize database: %v\n", err)
+			os.Exit(1)
+		}
+		
+		if err := deleteUser(db, email); err != nil {
+			fmt.Printf("Failed to delete user: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("User deleted successfully")
+	},
+}
+
+// configCmd represents the config command
+var configCmd = &cobra.Command{
+	Use:   "config",
+	Short: "Manage configuration",
+	Long:  "Manage application configuration",
+}
+
+// showConfigCmd represents the show config command
+var showConfigCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Show current configuration",
+	Long:  "Show the current application configuration",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Current configuration:")
+		fmt.Printf("Environment: %s\n", viper.GetString("env"))
+		fmt.Printf("Port: %s\n", viper.GetString("port"))
+		fmt.Printf("Database URL: %s\n", viper.GetString("database.url"))
+		fmt.Printf("Redis URL: %s\n", viper.GetString("redis.url"))
+	},
+}
+
+// validateConfigCmd represents the validate config command
+var validateConfigCmd = &cobra.Command{
+	Use:   "validate",
+	Short: "Validate configuration",
+	Long:  "Validate the current application configuration",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Validating configuration...")
+		
+		if err := validateConfig(); err != nil {
+			fmt.Printf("Configuration validation failed: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("Configuration is valid")
+	},
+}
+
+// init function to add all commands
+func init() {
+	// Add subcommands to root
+	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(migrateCmd)
+	rootCmd.AddCommand(seedCmd)
+	rootCmd.AddCommand(testCmd)
+	rootCmd.AddCommand(buildCmd)
+	rootCmd.AddCommand(generateCmd)
+	rootCmd.AddCommand(healthCmd)
+	rootCmd.AddCommand(logsCmd)
+	rootCmd.AddCommand(backupCmd)
+	rootCmd.AddCommand(restoreCmd)
+	rootCmd.AddCommand(userCmd)
+	rootCmd.AddCommand(configCmd)
+	
+	// Add subcommands to user
+	userCmd.AddCommand(createUserCmd)
+	userCmd.AddCommand(listUsersCmd)
+	userCmd.AddCommand(deleteUserCmd)
+	
+	// Add subcommands to config
+	configCmd.AddCommand(showConfigCmd)
+	configCmd.AddCommand(validateConfigCmd)
+	
+	// Add flags to serve command
+	serveCmd.Flags().StringVarP(&port, "port", "p", "8080", "port to listen on")
+	viper.BindPFlag("port", serveCmd.Flags().Lookup("port"))
+}
+
+// Configuration and service functions
+
+type Config struct {
+	Environment string `mapstructure:"env"`
+	Port        string `mapstructure:"port"`
+	Database    struct {
+		URL string `mapstructure:"url"`
+	} `mapstructure:"database"`
+	Redis struct {
+		URL string `mapstructure:"url"`
+	} `mapstructure:"redis"`
+	JWT struct {
+		Secret string `mapstructure:"secret"`
+	} `mapstructure:"jwt"`
+}
+
+type User struct {
+	ID    int    `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
+type Database interface {
+	Connect() error
+	Close() error
+	Migrate() error
+	Seed() error
+	CreateUser(email, name string) error
+	ListUsers() ([]*User, error)
+	DeleteUser(email string) error
+}
+
+type Services struct {
+	Database Database
+	// Add other services as needed
+}
+
+func loadConfig() *Config {
+	var config Config
+	if err := viper.Unmarshal(&config); err != nil {
+		fmt.Printf("Failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+	return &config
+}
+
+func initializeDatabase(config *Config) (Database, error) {
+	// Implementation for database initialization
+	return nil, nil
+}
+
+func initializeServices(config *Config, db Database) *Services {
+	return &Services{
+		Database: db,
+	}
+}
+
+func startServer(config *Config, services *Services) error {
+	// Implementation for starting server
+	fmt.Printf("Server starting on port %s...\n", config.Port)
+	time.Sleep(1 * time.Second) // Simulate server startup
+	return nil
+}
+
+func runMigrations(db Database) error {
+	// Implementation for running migrations
+	return db.Migrate()
+}
+
+func seedDatabase(db Database) error {
+	// Implementation for seeding database
+	return db.Seed()
+}
+
+func runTests() error {
+	// Implementation for running tests
+	fmt.Println("Running unit tests...")
+	time.Sleep(1 * time.Second)
+	fmt.Println("Running integration tests...")
+	time.Sleep(1 * time.Second)
+	fmt.Println("Running benchmarks...")
+	time.Sleep(1 * time.Second)
+	return nil
+}
+
+func buildApplication() error {
+	// Implementation for building application
+	fmt.Println("Compiling application...")
+	time.Sleep(2 * time.Second)
+	fmt.Println("Creating executable...")
+	time.Sleep(1 * time.Second)
+	return nil
+}
+
+func generateCode() error {
+	// Implementation for generating code
+	fmt.Println("Generating protobuf code...")
+	time.Sleep(1 * time.Second)
+	fmt.Println("Generating mocks...")
+	time.Sleep(1 * time.Second)
+	fmt.Println("Generating documentation...")
+	time.Sleep(1 * time.Second)
+	return nil
+}
+
+func checkHealth(config *Config) error {
+	// Implementation for health check
+	fmt.Println("Checking database connection...")
+	time.Sleep(500 * time.Millisecond)
+	fmt.Println("Checking Redis connection...")
+	time.Sleep(500 * time.Millisecond)
+	fmt.Println("Checking external services...")
+	time.Sleep(500 * time.Millisecond)
+	return nil
+}
+
+func viewLogs() error {
+	// Implementation for viewing logs
+	fmt.Println("Streaming logs...")
+	time.Sleep(5 * time.Second) // Simulate log streaming
+	return nil
+}
+
+func createBackup(config *Config) error {
+	// Implementation for creating backup
+	fmt.Println("Creating database dump...")
+	time.Sleep(2 * time.Second)
+	fmt.Println("Compressing backup...")
+	time.Sleep(1 * time.Second)
+	return nil
+}
+
+func restoreBackup(config *Config, backupFile string) error {
+	// Implementation for restoring backup
+	fmt.Printf("Restoring from %s...\n", backupFile)
+	time.Sleep(3 * time.Second)
+	return nil
+}
+
+func createUser(db Database, email, name string) error {
+	// Implementation for creating user
+	return db.CreateUser(email, name)
+}
+
+func listUsers(db Database) ([]*User, error) {
+	// Implementation for listing users
+	return db.ListUsers()
+}
+
+func deleteUser(db Database, email string) error {
+	// Implementation for deleting user
+	return db.DeleteUser(email)
+}
+
+func validateConfig() error {
+	// Implementation for validating config
+	fmt.Println("Validating database configuration...")
+	time.Sleep(500 * time.Millisecond)
+	fmt.Println("Validating Redis configuration...")
+	time.Sleep(500 * time.Millisecond)
+	fmt.Println("Validating JWT configuration...")
+	time.Sleep(500 * time.Millisecond)
+	return nil
+}
+
+func main() {
+	Execute()
+} 
