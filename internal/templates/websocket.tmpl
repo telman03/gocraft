@@ -1,0 +1,655 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"sync"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/websocket/v2"
+	"github.com/gorilla/websocket"
+)
+
+// WebSocketManager manages WebSocket connections
+type WebSocketManager struct {
+	clients    map[string]*Client
+	broadcast  chan Message
+	register   chan *Client
+	unregister chan *Client
+	mutex      sync.RWMutex
+}
+
+// Client represents a WebSocket client connection
+type Client struct {
+	ID       string
+	UserID   int
+	Username string
+	Conn     *websocket.Conn
+	Send     chan []byte
+	Manager  *WebSocketManager
+}
+
+// Message represents a WebSocket message
+type Message struct {
+	Type      string      `json:"type"`
+	UserID    int         `json:"user_id,omitempty"`
+	Username  string      `json:"username,omitempty"`
+	Content   string      `json:"content,omitempty"`
+	RoomID    string      `json:"room_id,omitempty"`
+	Data      interface{} `json:"data,omitempty"`
+	Timestamp time.Time   `json:"timestamp"`
+}
+
+// ChatMessage represents a chat message
+type ChatMessage struct {
+	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"`
+	Username  string    `json:"username"`
+	Content   string    `json:"content"`
+	RoomID    string    `json:"room_id"`
+	Type      string    `json:"type"` // text, image, file, system
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// Notification represents a notification
+type Notification struct {
+	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"`
+	Title     string    `json:"title"`
+	Message   string    `json:"message"`
+	Type      string    `json:"type"` // info, warning, error, success
+	Read      bool      `json:"read"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// NewWebSocketManager creates a new WebSocket manager
+func NewWebSocketManager() *WebSocketManager {
+	return &WebSocketManager{
+		clients:    make(map[string]*Client),
+		broadcast:  make(chan Message),
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
+	}
+}
+
+// Start starts the WebSocket manager
+func (wm *WebSocketManager) Start() {
+	for {
+		select {
+		case client := <-wm.register:
+			wm.mutex.Lock()
+			wm.clients[client.ID] = client
+			wm.mutex.Unlock()
+			
+			// Send welcome message
+			welcomeMsg := Message{
+				Type:      "connected",
+				Content:   "Connected to WebSocket server",
+				Timestamp: time.Now(),
+			}
+			client.Send <- wm.serializeMessage(welcomeMsg)
+			
+			// Broadcast user joined
+			joinMsg := Message{
+				Type:      "user_joined",
+				UserID:    client.UserID,
+				Username:  client.Username,
+				Content:   fmt.Sprintf("%s joined the chat", client.Username),
+				Timestamp: time.Now(),
+			}
+			wm.broadcast <- joinMsg
+
+		case client := <-wm.unregister:
+			wm.mutex.Lock()
+			if _, ok := wm.clients[client.ID]; ok {
+				delete(wm.clients, client.ID)
+				close(client.Send)
+			}
+			wm.mutex.Unlock()
+			
+			// Broadcast user left
+			leaveMsg := Message{
+				Type:      "user_left",
+				UserID:    client.UserID,
+				Username:  client.Username,
+				Content:   fmt.Sprintf("%s left the chat", client.Username),
+				Timestamp: time.Now(),
+			}
+			wm.broadcast <- leaveMsg
+
+		case message := <-wm.broadcast:
+			wm.mutex.RLock()
+			for _, client := range wm.clients {
+				select {
+				case client.Send <- wm.serializeMessage(message):
+				default:
+					close(client.Send)
+					delete(wm.clients, client.ID)
+				}
+			}
+			wm.mutex.RUnlock()
+		}
+	}
+}
+
+// serializeMessage serializes a message to JSON
+func (wm *WebSocketManager) serializeMessage(msg Message) []byte {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Error serializing message: %v", err)
+		return nil
+	}
+	return data
+}
+
+// BroadcastToRoom broadcasts a message to a specific room
+func (wm *WebSocketManager) BroadcastToRoom(roomID string, message Message) {
+	wm.mutex.RLock()
+	defer wm.mutex.RUnlock()
+	
+	for _, client := range wm.clients {
+		// In a real implementation, you'd check if client is in the room
+		select {
+		case client.Send <- wm.serializeMessage(message):
+		default:
+			close(client.Send)
+			delete(wm.clients, client.ID)
+		}
+	}
+}
+
+// SendToUser sends a message to a specific user
+func (wm *WebSocketManager) SendToUser(userID int, message Message) {
+	wm.mutex.RLock()
+	defer wm.mutex.RUnlock()
+	
+	for _, client := range wm.clients {
+		if client.UserID == userID {
+			select {
+			case client.Send <- wm.serializeMessage(message):
+			default:
+				close(client.Send)
+				delete(wm.clients, client.ID)
+			}
+		}
+	}
+}
+
+// GetConnectedUsers returns a list of connected users
+func (wm *WebSocketManager) GetConnectedUsers() []map[string]interface{} {
+	wm.mutex.RLock()
+	defer wm.mutex.RUnlock()
+	
+	var users []map[string]interface{}
+	for _, client := range wm.clients {
+		users = append(users, map[string]interface{}{
+			"id":       client.ID,
+			"user_id":  client.UserID,
+			"username": client.Username,
+		})
+	}
+	return users
+}
+
+// SetupWebSocketRoutes sets up WebSocket routes
+func SetupWebSocketRoutes(app *fiber.App, wsManager *WebSocketManager) {
+	// WebSocket upgrade handler
+	app.Use("/ws", func(c *fiber.Ctx) error {
+		// Check if the request is a WebSocket upgrade
+		if websocket.IsWebSocketUpgrade(c) {
+			c.Locals("allowed", true)
+			return c.Next()
+		}
+		return fiber.ErrUpgradeRequired
+	})
+
+	// WebSocket routes
+	app.Get("/ws/chat", websocket.New(func(c *websocket.Conn) {
+		handleChatWebSocket(c, wsManager)
+	}))
+
+	app.Get("/ws/notifications", websocket.New(func(c *websocket.Conn) {
+		handleNotificationWebSocket(c, wsManager)
+	}))
+
+	app.Get("/ws/general", websocket.New(func(c *websocket.Conn) {
+		handleGeneralWebSocket(c, wsManager)
+	}))
+
+	// REST endpoints for WebSocket management
+	app.Get("/ws/users", func(c *fiber.Ctx) error {
+		users := wsManager.GetConnectedUsers()
+		return c.JSON(fiber.Map{
+			"users": users,
+			"count": len(users),
+		})
+	})
+
+	app.Post("/ws/broadcast", func(c *fiber.Ctx) error {
+		var msg Message
+		if err := c.BodyParser(&msg); err != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Invalid message format",
+			})
+		}
+
+		msg.Timestamp = time.Now()
+		wsManager.broadcast <- msg
+
+		return c.JSON(fiber.Map{
+			"message": "Message broadcasted successfully",
+		})
+	})
+}
+
+// handleChatWebSocket handles chat WebSocket connections
+func handleChatWebSocket(conn *websocket.Conn, manager *WebSocketManager) {
+	// Extract user info from query parameters or headers
+	userID := conn.Query("user_id")
+	username := conn.Query("username")
+	
+	if userID == "" || username == "" {
+		conn.WriteJSON(fiber.Map{
+			"error": "user_id and username are required",
+		})
+		conn.Close()
+		return
+	}
+
+	// Create client
+	client := &Client{
+		ID:       generateClientID(),
+		UserID:   parseUserID(userID),
+		Username: username,
+		Conn:     conn,
+		Send:     make(chan []byte, 256),
+		Manager:  manager,
+	}
+
+	// Register client
+	manager.register <- client
+
+	// Start goroutines for reading and writing
+	go client.writePump()
+	go client.readPump()
+}
+
+// handleNotificationWebSocket handles notification WebSocket connections
+func handleNotificationWebSocket(conn *websocket.Conn, manager *WebSocketManager) {
+	userID := conn.Query("user_id")
+	username := conn.Query("username")
+	
+	if userID == "" || username == "" {
+		conn.WriteJSON(fiber.Map{
+			"error": "user_id and username are required",
+		})
+		conn.Close()
+		return
+	}
+
+	client := &Client{
+		ID:       generateClientID(),
+		UserID:   parseUserID(userID),
+		Username: username,
+		Conn:     conn,
+		Send:     make(chan []byte, 256),
+		Manager:  manager,
+	}
+
+	manager.register <- client
+
+	go client.writePump()
+	go client.readPump()
+}
+
+// handleGeneralWebSocket handles general WebSocket connections
+func handleGeneralWebSocket(conn *websocket.Conn, manager *WebSocketManager) {
+	userID := conn.Query("user_id")
+	username := conn.Query("username")
+	
+	if userID == "" || username == "" {
+		conn.WriteJSON(fiber.Map{
+			"error": "user_id and username are required",
+		})
+		conn.Close()
+		return
+	}
+
+	client := &Client{
+		ID:       generateClientID(),
+		UserID:   parseUserID(userID),
+		Username: username,
+		Conn:     conn,
+		Send:     make(chan []byte, 256),
+		Manager:  manager,
+	}
+
+	manager.register <- client
+
+	go client.writePump()
+	go client.readPump()
+}
+
+// readPump pumps messages from the WebSocket connection to the hub
+func (c *Client) readPump() {
+	defer func() {
+		c.Manager.unregister <- c
+		c.Conn.Close()
+	}()
+
+	c.Conn.SetReadLimit(512) // Max message size
+	c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	c.Conn.SetPongHandler(func(string) error {
+		c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
+	for {
+		_, message, err := c.Conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("WebSocket read error: %v", err)
+			}
+			break
+		}
+
+		// Parse message
+		var msg Message
+		if err := json.Unmarshal(message, &msg); err != nil {
+			log.Printf("Error parsing message: %v", err)
+			continue
+		}
+
+		// Add metadata
+		msg.UserID = c.UserID
+		msg.Username = c.Username
+		msg.Timestamp = time.Now()
+
+		// Handle different message types
+		switch msg.Type {
+		case "chat":
+			handleChatMessage(c, msg)
+		case "notification":
+			handleNotificationMessage(c, msg)
+		case "ping":
+			handlePingMessage(c)
+		default:
+			log.Printf("Unknown message type: %s", msg.Type)
+		}
+	}
+}
+
+// writePump pumps messages from the hub to the WebSocket connection
+func (c *Client) writePump() {
+	ticker := time.NewTicker(54 * time.Second)
+	defer func() {
+		ticker.Stop()
+		c.Conn.Close()
+	}()
+
+	for {
+		select {
+		case message, ok := <-c.Send:
+			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if !ok {
+				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+
+			w, err := c.Conn.NextWriter(websocket.TextMessage)
+			if err != nil {
+				return
+			}
+			w.Write(message)
+
+			// Add queued chat messages to the current WebSocket message
+			n := len(c.Send)
+			for i := 0; i < n; i++ {
+				w.Write([]byte{'\n'})
+				w.Write(<-c.Send)
+			}
+
+			if err := w.Close(); err != nil {
+				return
+			}
+
+		case <-ticker.C:
+			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := c.Conn.WriteMessage(websocket.PongMessage, nil); err != nil {
+				return
+			}
+		}
+	}
+}
+
+// handleChatMessage handles chat messages
+func handleChatMessage(client *Client, msg Message) {
+	// Save message to database
+	chatMsg := &ChatMessage{
+		UserID:    client.UserID,
+		Username:  client.Username,
+		Content:   msg.Content,
+		RoomID:    msg.RoomID,
+		Type:      "text",
+		CreatedAt: time.Now(),
+	}
+
+	// Save to database (implement your database logic here)
+	// db.SaveChatMessage(chatMsg)
+
+	// Broadcast to room
+	broadcastMsg := Message{
+		Type:      "chat",
+		UserID:    client.UserID,
+		Username:  client.Username,
+		Content:   msg.Content,
+		RoomID:    msg.RoomID,
+		Timestamp: time.Now(),
+	}
+
+	client.Manager.BroadcastToRoom(msg.RoomID, broadcastMsg)
+}
+
+// handleNotificationMessage handles notification messages
+func handleNotificationMessage(client *Client, msg Message) {
+	// Create notification
+	notification := &Notification{
+		UserID:    client.UserID,
+		Title:     msg.Content,
+		Message:   msg.Content,
+		Type:      "info",
+		Read:      false,
+		CreatedAt: time.Now(),
+	}
+
+	// Save to database (implement your database logic here)
+	// db.SaveNotification(notification)
+
+	// Send to specific user
+	notifyMsg := Message{
+		Type:      "notification",
+		UserID:    client.UserID,
+		Content:   msg.Content,
+		Data:      notification,
+		Timestamp: time.Now(),
+	}
+
+	client.Manager.SendToUser(client.UserID, notifyMsg)
+}
+
+// handlePingMessage handles ping messages
+func handlePingMessage(client *Client) {
+	pongMsg := Message{
+		Type:      "pong",
+		Timestamp: time.Now(),
+	}
+
+	client.Send <- client.Manager.serializeMessage(pongMsg)
+}
+
+// ChatService provides chat functionality
+type ChatService struct {
+	wsManager *WebSocketManager
+	db        Database
+}
+
+// NewChatService creates a new chat service
+func NewChatService(wsManager *WebSocketManager, db Database) *ChatService {
+	return &ChatService{
+		wsManager: wsManager,
+		db:        db,
+	}
+}
+
+// SendMessage sends a chat message
+func (cs *ChatService) SendMessage(userID int, content, roomID string) error {
+	// Save message to database
+	chatMsg := &ChatMessage{
+		UserID:    userID,
+		Content:   content,
+		RoomID:    roomID,
+		Type:      "text",
+		CreatedAt: time.Now(),
+	}
+
+	err := cs.db.SaveChatMessage(chatMsg)
+	if err != nil {
+		return err
+	}
+
+	// Broadcast message
+	msg := Message{
+		Type:      "chat",
+		UserID:    userID,
+		Content:   content,
+		RoomID:    roomID,
+		Timestamp: time.Now(),
+	}
+
+	cs.wsManager.BroadcastToRoom(roomID, msg)
+	return nil
+}
+
+// GetMessages retrieves chat messages
+func (cs *ChatService) GetMessages(roomID string, limit, offset int) ([]*ChatMessage, error) {
+	return cs.db.GetChatMessages(roomID, limit, offset)
+}
+
+// NotificationService provides notification functionality
+type NotificationService struct {
+	wsManager *WebSocketManager
+	db        Database
+}
+
+// NewNotificationService creates a new notification service
+func NewNotificationService(wsManager *WebSocketManager, db Database) *NotificationService {
+	return &NotificationService{
+		wsManager: wsManager,
+		db:        db,
+	}
+}
+
+// SendNotification sends a notification to a user
+func (cs *NotificationService) SendNotification(userID int, title, message, notificationType string) error {
+	// Save notification to database
+	notification := &Notification{
+		UserID:    userID,
+		Title:     title,
+		Message:   message,
+		Type:      notificationType,
+		Read:      false,
+		CreatedAt: time.Now(),
+	}
+
+	err := cs.db.SaveNotification(notification)
+	if err != nil {
+		return err
+	}
+
+	// Send via WebSocket
+	msg := Message{
+		Type:      "notification",
+		UserID:    userID,
+		Content:   title,
+		Data:      notification,
+		Timestamp: time.Now(),
+	}
+
+	cs.wsManager.SendToUser(userID, msg)
+	return nil
+}
+
+// GetNotifications retrieves notifications for a user
+func (cs *NotificationService) GetNotifications(userID int, limit, offset int) ([]*Notification, error) {
+	return cs.db.GetNotifications(userID, limit, offset)
+}
+
+// MarkNotificationAsRead marks a notification as read
+func (cs *NotificationService) MarkNotificationAsRead(notificationID int) error {
+	return cs.db.MarkNotificationAsRead(notificationID)
+}
+
+// Helper functions
+
+func generateClientID() string {
+	return fmt.Sprintf("client_%d", time.Now().UnixNano())
+}
+
+func parseUserID(userID string) int {
+	// Implement proper parsing logic
+	return 1 // Placeholder
+}
+
+// Database interface for WebSocket operations
+type Database interface {
+	SaveChatMessage(message *ChatMessage) error
+	GetChatMessages(roomID string, limit, offset int) ([]*ChatMessage, error)
+	SaveNotification(notification *Notification) error
+	GetNotifications(userID int, limit, offset int) ([]*Notification, error)
+	MarkNotificationAsRead(notificationID int) error
+}
+
+// Setup WebSocket routes with Fiber
+func SetupFiberWebSocketRoutes(app *fiber.App, wsManager *WebSocketManager) {
+	// WebSocket upgrade middleware
+	app.Use("/ws", func(c *fiber.Ctx) error {
+		// Check if the request is a WebSocket upgrade
+		if websocket.IsWebSocketUpgrade(c) {
+			c.Locals("allowed", true)
+			return c.Next()
+		}
+		return fiber.ErrUpgradeRequired
+	})
+
+	// WebSocket routes
+	app.Get("/ws/chat", websocket.New(func(c *websocket.Conn) {
+		handleChatWebSocket(c, wsManager)
+	}))
+
+	app.Get("/ws/notifications", websocket.New(func(c *websocket.Conn) {
+		handleNotificationWebSocket(c, wsManager)
+	}))
+
+	app.Get("/ws/general", websocket.New(func(c *websocket.Conn) {
+		handleGeneralWebSocket(c, wsManager)
+	}))
+}
+
+// Main function to start WebSocket server
+func main() {
+	app := fiber.New()
+
+	// Initialize WebSocket manager
+	wsManager := NewWebSocketManager()
+	go wsManager.Start()
+
+	// Setup WebSocket routes
+	SetupFiberWebSocketRoutes(app, wsManager)
+
+	// Start server
+	log.Fatal(app.Listen(":8080"))
+} 
