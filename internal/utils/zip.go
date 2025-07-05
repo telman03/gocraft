@@ -8,6 +8,7 @@ import (
 )
 
 func ZipFolder(source, target string) error {
+	os.MkdirAll(filepath.Dir(target), 0755)
 	zipfile, err := os.Create(target)
 	if err != nil {
 		return err
@@ -17,24 +18,40 @@ func ZipFolder(source, target string) error {
 	archive := zip.NewWriter(zipfile)
 	defer archive.Close()
 
-	filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+	// Walk through the source
+	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories (we only zip files)
 		if info.IsDir() {
 			return nil
 		}
-		relPath, _ := filepath.Rel(source, path)
+
+		// Calculate the relative path inside the ZIP
+		relPath, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+
+		// Open the file
 		file, err := os.Open(path)
 		if err != nil {
 			return err
 		}
 		defer file.Close()
 
-		writer, err := archive.Create(relPath)
+		// Create file entry in ZIP
+		f, err := archive.Create(relPath)
 		if err != nil {
 			return err
 		}
-		_, err = io.Copy(writer, file)
+
+		// Copy contents into ZIP
+		_, err = io.Copy(f, file)
 		return err
 	})
 
-	return nil
+	return err
 }

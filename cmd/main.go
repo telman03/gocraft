@@ -12,6 +12,8 @@ func main() {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowMethods: "GET,POST,OPTIONS",
+		ExposeHeaders: "Content-Disposition",
+		AllowHeaders:  "Content-Type",
 	}))
 
 	app.Post("/generate", api.GenerateHandler)
