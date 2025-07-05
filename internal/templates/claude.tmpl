@@ -1,0 +1,347 @@
+package ai
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"time"
+)
+
+// ClaudeClient handles communication with Anthropic's Claude API
+type ClaudeClient struct {
+	APIKey     string
+	BaseURL    string
+	HTTPClient *http.Client
+}
+
+// ClaudeRequest represents a Claude API request
+type ClaudeRequest struct {
+	Model       string                 `json:"model"`
+	MaxTokens   int                    `json:"max_tokens"`
+	Messages    []ClaudeMessage        `json:"messages"`
+	System      string                 `json:"system,omitempty"`
+	Temperature float64                `json:"temperature,omitempty"`
+	TopP        float64                `json:"top_p,omitempty"`
+	TopK        int                    `json:"top_k,omitempty"`
+	Stream      bool                   `json:"stream,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// ClaudeResponse represents a Claude API response
+type ClaudeResponse struct {
+	ID           string         `json:"id"`
+	Type         string         `json:"type"`
+	Role         string         `json:"role"`
+	Content      []ClaudeContent `json:"content"`
+	Model        string         `json:"model"`
+	StopReason   string         `json:"stop_reason"`
+	StopSequence string         `json:"stop_sequence"`
+	Usage        ClaudeUsage    `json:"usage"`
+}
+
+// ClaudeMessage represents a message in Claude format
+type ClaudeMessage struct {
+	Role    string          `json:"role"`
+	Content []ClaudeContent `json:"content"`
+}
+
+// ClaudeContent represents content in Claude format
+type ClaudeContent struct {
+	Type string `json:"type"`
+	Text string `json:"text,omitempty"`
+}
+
+// ClaudeUsage represents token usage
+type ClaudeUsage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+// NewClaudeClient creates a new Claude client
+func NewClaudeClient() *ClaudeClient {
+	apiKey := os.Getenv("CLAUDE_API_KEY")
+	if apiKey == "" {
+		panic("CLAUDE_API_KEY environment variable is required")
+	}
+
+	return &ClaudeClient{
+		APIKey:  apiKey,
+		BaseURL: "https://api.anthropic.com/v1",
+		HTTPClient: &http.Client{
+			Timeout: 60 * time.Second, // Claude can take longer
+		},
+	}
+}
+
+// ChatCompletion sends a chat completion request to Claude
+func (c *ClaudeClient) ChatCompletion(req ClaudeRequest) (*ClaudeResponse, error) {
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/messages", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("x-api-key", c.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var response ClaudeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &response, nil
+}
+
+// StreamChatCompletion streams a chat completion response from Claude
+func (c *ClaudeClient) StreamChatCompletion(req ClaudeRequest, callback func(string) error) error {
+	req.Stream = true
+
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/messages", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("x-api-key", c.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("failed to read stream: %w", err)
+		}
+
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if strings.HasPrefix(line, "data: ") {
+			data := strings.TrimPrefix(line, "data: ")
+			if data == "[DONE]" {
+				break
+			}
+
+			var streamResponse ClaudeResponse
+			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
+				continue
+			}
+
+			if len(streamResponse.Content) > 0 {
+				content := streamResponse.Content[0].Text
+				if content != "" {
+					if err := callback(content); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// GenerateText generates text using Claude
+func (c *ClaudeClient) GenerateText(prompt, model string, maxTokens int) (string, error) {
+	req := ClaudeRequest{
+		Model:     model,
+		MaxTokens: maxTokens,
+		Messages: []ClaudeMessage{
+			{
+				Role: "user",
+				Content: []ClaudeContent{
+					{
+						Type: "text",
+						Text: prompt,
+					},
+				},
+			},
+		},
+	}
+
+	resp, err := c.ChatCompletion(req)
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Content) > 0 {
+		return resp.Content[0].Text, nil
+	}
+
+	return "", fmt.Errorf("no response generated")
+}
+
+// GenerateCode generates code using Claude
+func (c *ClaudeClient) GenerateCode(prompt, language, model string) (string, error) {
+	systemPrompt := fmt.Sprintf("You are an expert %s programmer. Generate only the code without explanations or comments unless specifically requested.", language)
+	codePrompt := fmt.Sprintf("Generate %s code for the following request:\n\n%s", language, prompt)
+	
+	req := ClaudeRequest{
+		Model:     model,
+		MaxTokens: 2000,
+		System:    systemPrompt,
+		Messages: []ClaudeMessage{
+			{
+				Role: "user",
+				Content: []ClaudeContent{
+					{
+						Type: "text",
+						Text: codePrompt,
+					},
+				},
+			},
+		},
+	}
+
+	resp, err := c.ChatCompletion(req)
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Content) > 0 {
+		return resp.Content[0].Text, nil
+	}
+
+	return "", fmt.Errorf("no code generated")
+}
+
+// SummarizeText summarizes text using Claude
+func (c *ClaudeClient) SummarizeText(text, model string) (string, error) {
+	systemPrompt := "You are an expert at summarizing text. Provide concise, accurate summaries."
+	prompt := fmt.Sprintf("Please summarize the following text:\n\n%s", text)
+	
+	req := ClaudeRequest{
+		Model:     model,
+		MaxTokens: 500,
+		System:    systemPrompt,
+		Messages: []ClaudeMessage{
+			{
+				Role: "user",
+				Content: []ClaudeContent{
+					{
+						Type: "text",
+						Text: prompt,
+					},
+				},
+			},
+		},
+	}
+
+	resp, err := c.ChatCompletion(req)
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Content) > 0 {
+		return resp.Content[0].Text, nil
+	}
+
+	return "", fmt.Errorf("no summary generated")
+}
+
+// AnalyzeSentiment analyzes the sentiment of text using Claude
+func (c *ClaudeClient) AnalyzeSentiment(text, model string) (string, error) {
+	systemPrompt := "You are an expert at sentiment analysis. Analyze the sentiment and provide a brief explanation."
+	prompt := fmt.Sprintf("Analyze the sentiment of the following text:\n\n%s", text)
+	
+	req := ClaudeRequest{
+		Model:     model,
+		MaxTokens: 200,
+		System:    systemPrompt,
+		Messages: []ClaudeMessage{
+			{
+				Role: "user",
+				Content: []ClaudeContent{
+					{
+						Type: "text",
+						Text: prompt,
+					},
+				},
+			},
+		},
+	}
+
+	resp, err := c.ChatCompletion(req)
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Content) > 0 {
+		return resp.Content[0].Text, nil
+	}
+
+	return "", fmt.Errorf("no sentiment analysis generated")
+}
+
+// ExtractEntities extracts named entities from text using Claude
+func (c *ClaudeClient) ExtractEntities(text, model string) (string, error) {
+	systemPrompt := "You are an expert at named entity recognition. Extract and categorize named entities from the text."
+	prompt := fmt.Sprintf("Extract named entities from the following text:\n\n%s", text)
+	
+	req := ClaudeRequest{
+		Model:     model,
+		MaxTokens: 300,
+		System:    systemPrompt,
+		Messages: []ClaudeMessage{
+			{
+				Role: "user",
+				Content: []ClaudeContent{
+					{
+						Type: "text",
+						Text: prompt,
+					},
+				},
+			},
+		},
+	}
+
+	resp, err := c.ChatCompletion(req)
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Content) > 0 {
+		return resp.Content[0].Text, nil
+	}
+
+	return "", fmt.Errorf("no entities extracted")
+} 

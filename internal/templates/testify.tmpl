@@ -1,0 +1,337 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+)
+
+// TestSuite provides a base test suite for the application
+type TestSuite struct {
+	suite.Suite
+	app *fiber.App
+}
+
+// SetupSuite runs once before all tests
+func (ts *TestSuite) SetupSuite() {
+	// Initialize test environment
+	os.Setenv("APP_ENV", "test")
+	os.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/test_db?sslmode=disable")
+	
+	// Initialize application
+	ts.app = fiber.New(fiber.Config{
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			code := fiber.StatusInternalServerError
+			if e, ok := err.(*fiber.Error); ok {
+				code = e.Code
+			}
+			return c.Status(code).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		},
+	})
+
+	// Setup test routes
+	setupTestRoutes(ts.app)
+}
+
+// TearDownSuite runs once after all tests
+func (ts *TestSuite) TearDownSuite() {
+	// Cleanup test resources
+}
+
+// SetupTest runs before each test
+func (ts *TestSuite) SetupTest() {
+	// Setup test data
+}
+
+// TearDownTest runs after each test
+func (ts *TestSuite) TearDownTest() {
+	// Cleanup test data
+}
+
+// TestMain runs the test suite
+func TestMain(t *testing.T) {
+	suite.Run(t, new(TestSuite))
+}
+
+// setupTestRoutes sets up routes for testing
+func setupTestRoutes(app *fiber.App) {
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"status": "healthy",
+			"service": "{{.ProjectName}}",
+			"version": "1.0.0",
+		})
+	})
+
+	app.Post("/auth/login", func(c *fiber.Ctx) error {
+		var req LoginRequest
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
+		}
+
+		if req.Email == "test@example.com" && req.Password == "password" {
+			return c.JSON(fiber.Map{
+				"token": "test-jwt-token",
+				"user": fiber.Map{
+					"id": 1,
+					"email": req.Email,
+				},
+			})
+		}
+
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
+	})
+
+	app.Get("/users/:id", func(c *fiber.Ctx) error {
+		userID := c.Params("id")
+		if userID == "1" {
+			return c.JSON(fiber.Map{
+				"id": 1,
+				"email": "test@example.com",
+				"name": "Test User",
+			})
+		}
+		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	})
+}
+
+// TestHealthCheck tests the health check endpoint
+func (ts *TestSuite) TestHealthCheck() {
+	req := httptest.NewRequest("GET", "/health", nil)
+	resp, err := ts.app.Test(req)
+
+	ts.Require().NoError(err)
+	ts.Assert().Equal(http.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	ts.Require().NoError(err)
+
+	ts.Assert().Equal("healthy", result["status"])
+	ts.Assert().Equal("{{.ProjectName}}", result["service"])
+}
+
+// TestLoginSuccess tests successful login
+func (ts *TestSuite) TestLoginSuccess() {
+	loginData := LoginRequest{
+		Email:    "test@example.com",
+		Password: "password",
+	}
+
+	jsonData, err := json.Marshal(loginData)
+	ts.Require().NoError(err)
+
+	req := httptest.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := ts.app.Test(req)
+
+	ts.Require().NoError(err)
+	ts.Assert().Equal(http.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	ts.Require().NoError(err)
+
+	ts.Assert().NotEmpty(result["token"])
+	ts.Assert().NotNil(result["user"])
+}
+
+// TestLoginFailure tests failed login
+func (ts *TestSuite) TestLoginFailure() {
+	loginData := LoginRequest{
+		Email:    "test@example.com",
+		Password: "wrongpassword",
+	}
+
+	jsonData, err := json.Marshal(loginData)
+	ts.Require().NoError(err)
+
+	req := httptest.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := ts.app.Test(req)
+
+	ts.Require().NoError(err)
+	ts.Assert().Equal(http.StatusUnauthorized, resp.StatusCode)
+}
+
+// TestGetUserSuccess tests successful user retrieval
+func (ts *TestSuite) TestGetUserSuccess() {
+	req := httptest.NewRequest("GET", "/users/1", nil)
+	resp, err := ts.app.Test(req)
+
+	ts.Require().NoError(err)
+	ts.Assert().Equal(http.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	ts.Require().NoError(err)
+
+	ts.Assert().Equal(float64(1), result["id"])
+	ts.Assert().Equal("test@example.com", result["email"])
+}
+
+// TestGetUserNotFound tests user not found
+func (ts *TestSuite) TestGetUserNotFound() {
+	req := httptest.NewRequest("GET", "/users/999", nil)
+	resp, err := ts.app.Test(req)
+
+	ts.Require().NoError(err)
+	ts.Assert().Equal(http.StatusNotFound, resp.StatusCode)
+}
+
+// Request/Response structures
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type LoginResponse struct {
+	Token string `json:"token"`
+	User  User   `json:"user"`
+}
+
+type User struct {
+	ID    int    `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
+// Mock examples
+
+// MockUserService is a mock implementation of UserService
+type MockUserService struct {
+	mock.Mock
+}
+
+// GetUserByID mocks the GetUserByID method
+func (m *MockUserService) GetUserByID(id int) (*User, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*User), args.Error(1)
+}
+
+// CreateUser mocks the CreateUser method
+func (m *MockUserService) CreateUser(user *User) error {
+	args := m.Called(user)
+	return args.Error(0)
+}
+
+// TestWithMock demonstrates using mocks
+func (ts *TestSuite) TestWithMock() {
+	mockService := new(MockUserService)
+	
+	// Setup expectations
+	expectedUser := &User{ID: 1, Email: "test@example.com", Name: "Test User"}
+	mockService.On("GetUserByID", 1).Return(expectedUser, nil)
+	mockService.On("GetUserByID", 999).Return(nil, errors.New("user not found"))
+
+	// Test successful case
+	user, err := mockService.GetUserByID(1)
+	ts.Require().NoError(err)
+	ts.Assert().Equal(expectedUser, user)
+
+	// Test error case
+	user, err = mockService.GetUserByID(999)
+	ts.Require().Error(err)
+	ts.Assert().Nil(user)
+
+	// Verify all expectations were met
+	mockService.AssertExpectations(ts.T())
+}
+
+// Benchmark examples
+
+// BenchmarkHealthCheck benchmarks the health check endpoint
+func BenchmarkHealthCheck(b *testing.B) {
+	app := fiber.New()
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{"status": "healthy"})
+	})
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req := httptest.NewRequest("GET", "/health", nil)
+		resp, err := app.Test(req)
+		if err != nil {
+			b.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+}
+
+// BenchmarkLogin benchmarks the login endpoint
+func BenchmarkLogin(b *testing.B) {
+	app := fiber.New()
+	app.Post("/auth/login", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{"token": "test-token"})
+	})
+
+	loginData := LoginRequest{
+		Email:    "test@example.com",
+		Password: "password",
+	}
+	jsonData, _ := json.Marshal(loginData)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req := httptest.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := app.Test(req)
+		if err != nil {
+			b.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+}
+
+// Helper functions for testing
+
+// CreateTestUser creates a test user
+func CreateTestUser() *User {
+	return &User{
+		ID:    1,
+		Email: "test@example.com",
+		Name:  "Test User",
+	}
+}
+
+// CreateTestToken creates a test JWT token
+func CreateTestToken() string {
+	return "test-jwt-token"
+}
+
+// AssertJSONResponse asserts that a response contains expected JSON
+func AssertJSONResponse(t *testing.T, resp *http.Response, expected map[string]interface{}) {
+	var result map[string]interface{}
+	err := json.NewDecoder(resp.Body).Decode(&result)
+	require.NoError(t, err)
+
+	for key, expectedValue := range expected {
+		assert.Equal(t, expectedValue, result[key], "Field %s should match", key)
+	}
+}
+
+// CreateTestRequest creates a test HTTP request
+func CreateTestRequest(method, path string, body interface{}) *http.Request {
+	var req *http.Request
+	if body != nil {
+		jsonData, _ := json.Marshal(body)
+		req = httptest.NewRequest(method, path, bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+	} else {
+		req = httptest.NewRequest(method, path, nil)
+	}
+	return req
+} 

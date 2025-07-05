@@ -1,0 +1,277 @@
+package config
+
+import (
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/joho/godotenv"
+)
+
+// Config holds all configuration
+type Config struct {
+	App      AppConfig
+	Database DatabaseConfig
+	Redis    RedisConfig
+	MongoDB  MongoDBConfig
+	Auth     AuthConfig
+	CORS     CORSConfig
+	Logging  LoggingConfig
+	RateLimit RateLimitConfig
+	Upload   UploadConfig
+	Email    EmailConfig
+	External ExternalConfig
+	Monitoring MonitoringConfig
+}
+
+// AppConfig holds application configuration
+type AppConfig struct {
+	Name    string
+	Env     string
+	Port    string
+	Host    string
+	Version string
+	Debug   bool
+}
+
+// DatabaseConfig holds database configuration
+type DatabaseConfig struct {
+	URL             string
+	Host            string
+	Port            string
+	Name            string
+	User            string
+	Password        string
+	SSLMode         string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+}
+
+// RedisConfig holds Redis configuration
+type RedisConfig struct {
+	URL      string
+	Host     string
+	Port     string
+	Password string
+	DB       int
+	PoolSize int
+}
+
+// MongoDBConfig holds MongoDB configuration
+type MongoDBConfig struct {
+	URL      string
+	Host     string
+	Port     string
+	Database string
+	Username string
+	Password string
+}
+
+// AuthConfig holds authentication configuration
+type AuthConfig struct {
+	JWTSecret           string
+	JWTExpiration       time.Duration
+	JWTRefreshExpiration time.Duration
+	BCryptCost          int
+	SessionSecret       string
+}
+
+// CORSConfig holds CORS configuration
+type CORSConfig struct {
+	AllowOrigins     string
+	AllowMethods     string
+	AllowHeaders     string
+	AllowCredentials bool
+}
+
+// LoggingConfig holds logging configuration
+type LoggingConfig struct {
+	Level      string
+	Format     string
+	File       string
+	MaxSize    int
+	MaxAge     int
+	MaxBackups int
+}
+
+// RateLimitConfig holds rate limiting configuration
+type RateLimitConfig struct {
+	Requests int
+	Window   time.Duration
+	Burst    int
+}
+
+// UploadConfig holds file upload configuration
+type UploadConfig struct {
+	MaxSize       string
+	AllowedTypes  string
+	Path          string
+}
+
+// EmailConfig holds email configuration
+type EmailConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	From     string
+}
+
+// ExternalConfig holds external API configuration
+type ExternalConfig struct {
+	OpenAIApiKey        string
+	StripeSecretKey     string
+	StripePublishableKey string
+}
+
+// MonitoringConfig holds monitoring configuration
+type MonitoringConfig struct {
+	SentryDSN           string
+	NewRelicLicenseKey  string
+	DatadogApiKey       string
+}
+
+// Load loads configuration from environment variables
+func Load() *Config {
+	// Load .env file if it exists
+	godotenv.Load()
+
+	return &Config{
+		App: AppConfig{
+			Name:    getEnv("APP_NAME", "{{.ProjectName}}"),
+			Env:     getEnv("APP_ENV", "development"),
+			Port:    getEnv("APP_PORT", "8080"),
+			Host:    getEnv("APP_HOST", "0.0.0.0"),
+			Version: getEnv("APP_VERSION", "1.0.0"),
+			Debug:   getEnvAsBool("DEBUG", true),
+		},
+		Database: DatabaseConfig{
+			URL:             getEnv("DATABASE_URL", "postgres://postgres:password@localhost:5432/{{.ProjectName}}?sslmode=disable"),
+			Host:            getEnv("DB_HOST", "localhost"),
+			Port:            getEnv("DB_PORT", "5432"),
+			Name:            getEnv("DB_NAME", "{{.ProjectName}}"),
+			User:            getEnv("DB_USER", "postgres"),
+			Password:        getEnv("DB_PASSWORD", "password"),
+			SSLMode:         getEnv("DB_SSL_MODE", "disable"),
+			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 25),
+			ConnMaxLifetime: getEnvAsDuration("DB_CONN_MAX_LIFETIME", 300*time.Second),
+		},
+		Redis: RedisConfig{
+			URL:      getEnv("REDIS_URL", "redis://localhost:6379"),
+			Host:     getEnv("REDIS_HOST", "localhost"),
+			Port:     getEnv("REDIS_PORT", "6379"),
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       getEnvAsInt("REDIS_DB", 0),
+			PoolSize: getEnvAsInt("REDIS_POOL_SIZE", 10),
+		},
+		MongoDB: MongoDBConfig{
+			URL:      getEnv("MONGODB_URL", "mongodb://localhost:27017/{{.ProjectName}}"),
+			Host:     getEnv("MONGODB_HOST", "localhost"),
+			Port:     getEnv("MONGODB_PORT", "27017"),
+			Database: getEnv("MONGODB_DATABASE", "{{.ProjectName}}"),
+			Username: getEnv("MONGODB_USERNAME", ""),
+			Password: getEnv("MONGODB_PASSWORD", ""),
+		},
+		Auth: AuthConfig{
+			JWTSecret:           getEnv("JWT_SECRET", "your-super-secret-jwt-key-change-in-production"),
+			JWTExpiration:       getEnvAsDuration("JWT_EXPIRATION", 24*time.Hour),
+			JWTRefreshExpiration: getEnvAsDuration("JWT_REFRESH_EXPIRATION", 168*time.Hour),
+			BCryptCost:          getEnvAsInt("BCRYPT_COST", 12),
+			SessionSecret:       getEnv("SESSION_SECRET", "your-session-secret-key"),
+		},
+		CORS: CORSConfig{
+			AllowOrigins:     getEnv("CORS_ALLOW_ORIGINS", "*"),
+			AllowMethods:     getEnv("CORS_ALLOW_METHODS", "GET,POST,PUT,DELETE,OPTIONS"),
+			AllowHeaders:     getEnv("CORS_ALLOW_HEADERS", "Content-Type,Authorization,X-Requested-With"),
+			AllowCredentials: getEnvAsBool("CORS_ALLOW_CREDENTIALS", true),
+		},
+		Logging: LoggingConfig{
+			Level:      getEnv("LOG_LEVEL", "debug"),
+			Format:     getEnv("LOG_FORMAT", "json"),
+			File:       getEnv("LOG_FILE", "logs/app.log"),
+			MaxSize:    getEnvAsInt("LOG_MAX_SIZE", 100),
+			MaxAge:     getEnvAsInt("LOG_MAX_AGE", 30),
+			MaxBackups: getEnvAsInt("LOG_MAX_BACKUPS", 10),
+		},
+		RateLimit: RateLimitConfig{
+			Requests: getEnvAsInt("RATE_LIMIT_REQUESTS", 100),
+			Window:   getEnvAsDuration("RATE_LIMIT_WINDOW", 1*time.Minute),
+			Burst:    getEnvAsInt("RATE_LIMIT_BURST", 200),
+		},
+		Upload: UploadConfig{
+			MaxSize:      getEnv("UPLOAD_MAX_SIZE", "10MB"),
+			AllowedTypes: getEnv("UPLOAD_ALLOWED_TYPES", "image/jpeg,image/png,image/gif,application/pdf"),
+			Path:         getEnv("UPLOAD_PATH", "uploads"),
+		},
+		Email: EmailConfig{
+			Host:     getEnv("SMTP_HOST", "smtp.gmail.com"),
+			Port:     getEnvAsInt("SMTP_PORT", 587),
+			Username: getEnv("SMTP_USERNAME", "your-email@gmail.com"),
+			Password: getEnv("SMTP_PASSWORD", "your-app-password"),
+			From:     getEnv("SMTP_FROM", "noreply@{{.ProjectName}}.com"),
+		},
+		External: ExternalConfig{
+			OpenAIApiKey:        getEnv("OPENAI_API_KEY", ""),
+			StripeSecretKey:     getEnv("STRIPE_SECRET_KEY", ""),
+			StripePublishableKey: getEnv("STRIPE_PUBLISHABLE_KEY", ""),
+		},
+		Monitoring: MonitoringConfig{
+			SentryDSN:          getEnv("SENTRY_DSN", ""),
+			NewRelicLicenseKey: getEnv("NEW_RELIC_LICENSE_KEY", ""),
+			DatadogApiKey:      getEnv("DATADOG_API_KEY", ""),
+		},
+	}
+}
+
+// IsDevelopment returns true if the application is in development mode
+func (c *Config) IsDevelopment() bool {
+	return c.App.Env == "development"
+}
+
+// IsProduction returns true if the application is in production mode
+func (c *Config) IsProduction() bool {
+	return c.App.Env == "production"
+}
+
+// IsTest returns true if the application is in test mode
+func (c *Config) IsTest() bool {
+	return c.App.Env == "test"
+}
+
+// Helper functions
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func getEnvAsInt(key string, fallback int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return fallback
+}
+
+func getEnvAsBool(key string, fallback bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
+		}
+	}
+	return fallback
+}
+
+func getEnvAsDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return fallback
+} 

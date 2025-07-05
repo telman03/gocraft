@@ -1,0 +1,255 @@
+package middleware
+
+import (
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/helmet"
+	"github.com/gofiber/fiber/v2/middleware/compress"
+	"github.com/gofiber/fiber/v2/middleware/cache"
+	"github.com/gofiber/fiber/v2/middleware/etag"
+	"github.com/gofiber/fiber/v2/middleware/monitor"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/gofiber/fiber/v2/middleware/timeout"
+	"github.com/gofiber/fiber/v2/middleware/pprof"
+	"{{.ProjectName}}/logger"
+	"go.uber.org/zap"
+)
+
+// SetupMiddleware configures all middleware for the application
+func SetupMiddleware(app *fiber.App) {
+	// Basic security and performance middleware
+	app.Use(helmet.New())
+	app.Use(compress.New())
+	app.Use(etag.New())
+	
+	// Request ID for tracing
+	app.Use(requestid.New())
+	
+	// CORS configuration
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     getEnv("CORS_ALLOW_ORIGINS", "*"),
+		AllowMethods:     getEnv("CORS_ALLOW_METHODS", "GET,POST,PUT,DELETE,OPTIONS"),
+		AllowHeaders:     getEnv("CORS_ALLOW_HEADERS", "Content-Type,Authorization,X-Requested-With"),
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+	
+	// Rate limiting
+	app.Use(limiter.New(limiter.Config{
+		Max:        getEnvAsInt("RATE_LIMIT_REQUESTS", 100),
+		Expiration: getEnvAsDuration("RATE_LIMIT_WINDOW", 1*time.Minute),
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(429).JSON(fiber.Map{
+				"error": "Too many requests",
+				"retry_after": c.Get("Retry-After"),
+			})
+		},
+	}))
+	
+	// Request timeout
+	app.Use(timeout.New(timeout.Config{
+		Timeout: getEnvAsDuration("REQUEST_TIMEOUT", 30*time.Second),
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			return c.Status(408).JSON(fiber.Map{
+				"error": "Request timeout",
+			})
+		},
+	}))
+	
+	// Logging middleware
+	app.Use(logger.New(logger.Config{
+		Format:     "${time} | ${status} | ${latency} | ${method} | ${path} | ${ip}\n",
+		TimeFormat: "2006-01-02 15:04:05",
+		Output:     logger.Log.Writer(),
+	}))
+	
+	// Custom request logging
+	app.Use(customRequestLogger)
+	
+	// Panic recovery
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
+		StackTraceHandler: func(c *fiber.Ctx, e interface{}) {
+			logger.Error("Panic recovered", zap.Any("error", e))
+		},
+	}))
+	
+	// Cache middleware for static assets
+	app.Use("/static/*", cache.New(cache.Config{
+		Expiration:   1 * time.Hour,
+		CacheControl: true,
+	}))
+	
+	// Development middleware
+	if getEnv("APP_ENV", "development") == "development" {
+		// Pprof for debugging
+		app.Use("/debug/*", pprof.New())
+		
+		// Monitor dashboard
+		app.Get("/monitor", monitor.New())
+	}
+}
+
+// customRequestLogger logs detailed request information
+func customRequestLogger(c *fiber.Ctx) error {
+	start := time.Now()
+	
+	// Process request
+	err := c.Next()
+	
+	// Calculate duration
+	duration := time.Since(start)
+	
+	// Log request details
+	logger.LogRequest(
+		c.Method(),
+		c.Path(),
+		c.IP(),
+		duration,
+		c.Response().StatusCode(),
+	)
+	
+	return err
+}
+
+// AuthMiddleware validates JWT tokens
+func AuthMiddleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		token := c.Get("Authorization")
+		if token == "" {
+			return c.Status(401).JSON(fiber.Map{
+				"error": "Authorization header required",
+			})
+		}
+		
+		// Remove "Bearer " prefix
+		if len(token) > 7 && token[:7] == "Bearer " {
+			token = token[7:]
+		}
+		
+		// Validate token (implement your JWT validation logic here)
+		// userID, err := validateJWT(token)
+		// if err != nil {
+		//     return c.Status(401).JSON(fiber.Map{
+		//         "error": "Invalid token",
+		//     })
+		// }
+		
+		// Set user ID in context
+		// c.Locals("userID", userID)
+		
+		return c.Next()
+	}
+}
+
+// RoleMiddleware checks user roles
+func RoleMiddleware(roles ...string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// Get user from context (set by AuthMiddleware)
+		// userID := c.Locals("userID").(string)
+		
+		// Check user role (implement your role checking logic here)
+		// userRole := getUserRole(userID)
+		// if !contains(roles, userRole) {
+		//     return c.Status(403).JSON(fiber.Map{
+		//         "error": "Insufficient permissions",
+		//     })
+		// }
+		
+		return c.Next()
+	}
+}
+
+// ValidationMiddleware validates request body
+func ValidationMiddleware(validator interface{}) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// Implement your validation logic here
+		// Example using a validation library like go-playground/validator
+		// if err := c.BodyParser(validator); err != nil {
+		//     return c.Status(400).JSON(fiber.Map{
+		//         "error": "Invalid request body",
+		//     })
+		// }
+		// 
+		// if err := validate.Struct(validator); err != nil {
+		//     return c.Status(400).JSON(fiber.Map{
+		//         "error": "Validation failed",
+		//         "details": err.Error(),
+		//     })
+		// }
+		
+		return c.Next()
+	}
+}
+
+// FileUploadMiddleware handles file uploads
+func FileUploadMiddleware(maxSize int64, allowedTypes ...string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// Implement file upload validation
+		// Example:
+		// file, err := c.FormFile("file")
+		// if err != nil {
+		//     return c.Status(400).JSON(fiber.Map{
+		//         "error": "No file uploaded",
+		//     })
+		// }
+		// 
+		// if file.Size > maxSize {
+		//     return c.Status(400).JSON(fiber.Map{
+		//         "error": "File too large",
+		//     })
+		// }
+		// 
+		// if !isAllowedType(file.Header.Get("Content-Type"), allowedTypes) {
+		//     return c.Status(400).JSON(fiber.Map{
+		//         "error": "File type not allowed",
+		//     })
+		// }
+		
+		return c.Next()
+	}
+}
+
+// Helper functions
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func getEnvAsInt(key string, fallback int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return fallback
+}
+
+func getEnvAsDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return fallback
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+} 

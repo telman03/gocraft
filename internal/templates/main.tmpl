@@ -1,0 +1,17 @@
+package main
+
+import (
+	"github.com/gofiber/fiber/v2"
+	{{if .Auth}}"your_project/auth"{{end}}
+	{{if .DB}}"your_project/db"{{end}}
+	{{if .Router}}"your_project/router"{{end}}
+)
+
+func main() {
+	app := fiber.New()
+
+	{{if .DB}}db.Connect(){{end}}
+	{{if .Router}}router.SetupRoutes(app){{end}}
+
+	app.Listen(":8080")
+}

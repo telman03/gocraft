@@ -1,0 +1,182 @@
+-- Migration: 001_create_users_table.up.sql
+-- Description: Create users table for authentication
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    role VARCHAR(50) DEFAULT 'user',
+    is_active BOOLEAN DEFAULT true,
+    email_verified BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index on email for faster lookups
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- Create index on role for role-based queries
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
+-- Create trigger to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_users_updated_at 
+    BEFORE UPDATE ON users 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Migration: 001_create_users_table.down.sql
+-- Description: Drop users table
+
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+DROP FUNCTION IF EXISTS update_updated_at_column();
+DROP TABLE IF EXISTS users;
+
+-- Migration: 002_create_sessions_table.up.sql
+-- Description: Create sessions table for JWT refresh tokens
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    refresh_token VARCHAR(500) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_refresh_token ON sessions(refresh_token);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+
+-- Create trigger for updated_at
+CREATE TRIGGER update_sessions_updated_at 
+    BEFORE UPDATE ON sessions 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Migration: 002_create_sessions_table.down.sql
+-- Description: Drop sessions table
+
+DROP TRIGGER IF EXISTS update_sessions_updated_at ON sessions;
+DROP TABLE IF EXISTS sessions;
+
+-- Migration: 003_create_profiles_table.up.sql
+-- Description: Create user profiles table
+
+CREATE TABLE IF NOT EXISTS profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    avatar_url VARCHAR(500),
+    bio TEXT,
+    website VARCHAR(255),
+    location VARCHAR(255),
+    date_of_birth DATE,
+    phone VARCHAR(20),
+    preferences JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);
+
+-- Create trigger for updated_at
+CREATE TRIGGER update_profiles_updated_at 
+    BEFORE UPDATE ON profiles 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Migration: 003_create_profiles_table.down.sql
+-- Description: Drop profiles table
+
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+DROP TABLE IF EXISTS profiles;
+
+-- Migration: 004_create_audit_logs_table.up.sql
+-- Description: Create audit logs table for tracking user actions
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    action VARCHAR(100) NOT NULL,
+    resource_type VARCHAR(50),
+    resource_id VARCHAR(100),
+    details JSONB,
+    ip_address INET,
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
+
+-- Migration: 004_create_audit_logs_table.down.sql
+-- Description: Drop audit logs table
+
+DROP TABLE IF EXISTS audit_logs;
+
+-- Migration: 005_add_user_roles_enum.up.sql
+-- Description: Add user roles enum and update users table
+
+-- Create enum for user roles
+CREATE TYPE user_role AS ENUM ('admin', 'moderator', 'user', 'guest');
+
+-- Update users table to use the enum
+ALTER TABLE users 
+    ALTER COLUMN role TYPE user_role USING role::user_role;
+
+-- Migration: 005_add_user_roles_enum.down.sql
+-- Description: Revert user roles enum
+
+-- Revert users table to use VARCHAR
+ALTER TABLE users 
+    ALTER COLUMN role TYPE VARCHAR(50);
+
+-- Drop the enum
+DROP TYPE IF EXISTS user_role;
+
+-- Migration: 006_create_api_keys_table.up.sql
+-- Description: Create API keys table for external integrations
+
+CREATE TABLE IF NOT EXISTS api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    key_hash VARCHAR(255) NOT NULL,
+    permissions JSONB DEFAULT '[]',
+    last_used_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
+CREATE INDEX IF NOT EXISTS idx_api_keys_expires_at ON api_keys(expires_at);
+
+-- Create trigger for updated_at
+CREATE TRIGGER update_api_keys_updated_at 
+    BEFORE UPDATE ON api_keys 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Migration: 006_create_api_keys_table.down.sql
+-- Description: Drop API keys table
+
+DROP TRIGGER IF EXISTS update_api_keys_updated_at ON api_keys;
+DROP TABLE IF EXISTS api_keys; 

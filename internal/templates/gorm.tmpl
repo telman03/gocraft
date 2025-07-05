@@ -1,0 +1,310 @@
+package db
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"time"
+
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
+
+var DB *gorm.DB
+
+// Connect initializes GORM database connection
+func Connect() {
+	var dialector gorm.Dialector
+	dbType := getEnv("DB_TYPE", "postgres")
+
+	switch dbType {
+	case "postgres":
+		dsn := os.Getenv("DATABASE_URL")
+		if dsn == "" {
+			host := getEnv("DB_HOST", "localhost")
+			port := getEnv("DB_PORT", "5432")
+			user := getEnv("DB_USER", "postgres")
+			password := getEnv("DB_PASSWORD", "password")
+			database := getEnv("DB_NAME", "{{.ProjectName}}")
+			sslmode := getEnv("DB_SSL_MODE", "disable")
+			
+			dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+				host, port, user, password, database, sslmode)
+		}
+		dialector = postgres.Open(dsn)
+
+	case "mysql":
+		dsn := os.Getenv("DATABASE_URL")
+		if dsn == "" {
+			host := getEnv("DB_HOST", "localhost")
+			port := getEnv("DB_PORT", "3306")
+			user := getEnv("DB_USER", "root")
+			password := getEnv("DB_PASSWORD", "")
+			database := getEnv("DB_NAME", "{{.ProjectName}}")
+			
+			dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+				user, password, host, port, database)
+		}
+		dialector = mysql.Open(dsn)
+
+	case "sqlite":
+		dbPath := os.Getenv("DATABASE_URL")
+		if dbPath == "" {
+			dataDir := getEnv("DB_DATA_DIR", "./data")
+			dbName := getEnv("DB_NAME", "{{.ProjectName}}.db")
+			
+			if err := os.MkdirAll(dataDir, 0755); err != nil {
+				log.Fatal("Failed to create data directory:", err)
+			}
+			
+			dbPath = fmt.Sprintf("%s/%s", dataDir, dbName)
+		}
+		dialector = sqlite.Open(dbPath)
+
+	default:
+		log.Fatal("Unsupported database type:", dbType)
+	}
+
+	// Configure GORM logger
+	gormLogger := logger.Default
+	if getEnv("APP_ENV", "development") == "development" {
+		gormLogger = logger.Default.LogMode(logger.Info)
+	}
+
+	var err error
+	DB, err = gorm.Open(dialector, &gorm.Config{
+		Logger: gormLogger,
+		NowFunc: func() time.Time {
+			return time.Now().UTC()
+		},
+	})
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+
+	// Configure connection pool
+	sqlDB, err := DB.DB()
+	if err != nil {
+		log.Fatal("Failed to get underlying sql.DB:", err)
+	}
+
+	sqlDB.SetMaxOpenConns(getEnvAsInt("DB_MAX_OPEN_CONNS", 25))
+	sqlDB.SetMaxIdleConns(getEnvAsInt("DB_MAX_IDLE_CONNS", 25))
+	sqlDB.SetConnMaxLifetime(getEnvAsDuration("DB_CONN_MAX_LIFETIME", 300*time.Second))
+
+	log.Printf("Connected to %s database successfully", dbType)
+}
+
+// AutoMigrate runs database migrations
+func AutoMigrate() error {
+	return DB.AutoMigrate(
+		&User{},
+		&Session{},
+		&Profile{},
+		&AuditLog{},
+	)
+}
+
+// GetDB returns the GORM database instance
+func GetDB() *gorm.DB {
+	return DB
+}
+
+// Close closes the database connection
+func Close() error {
+	if DB != nil {
+		sqlDB, err := DB.DB()
+		if err != nil {
+			return err
+		}
+		return sqlDB.Close()
+	}
+	return nil
+}
+
+// Models
+
+// User represents a user in the system
+type User struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	Email         string    `gorm:"uniqueIndex;not null" json:"email"`
+	PasswordHash  string    `gorm:"not null" json:"-"`
+	FirstName     string    `json:"first_name"`
+	LastName      string    `json:"last_name"`
+	Role          string    `gorm:"default:user" json:"role"`
+	IsActive      bool      `gorm:"default:true" json:"is_active"`
+	EmailVerified bool      `gorm:"default:false" json:"email_verified"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	
+	// Relationships
+	Profile  Profile   `gorm:"foreignKey:UserID" json:"profile,omitempty"`
+	Sessions []Session `gorm:"foreignKey:UserID" json:"-"`
+}
+
+// Session represents a user session
+type Session struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	UserID       uint      `gorm:"not null" json:"user_id"`
+	RefreshToken string    `gorm:"not null" json:"-"`
+	ExpiresAt    time.Time `gorm:"not null" json:"expires_at"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	
+	// Relationships
+	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+// Profile represents a user profile
+type Profile struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	UserID      uint      `gorm:"uniqueIndex;not null" json:"user_id"`
+	AvatarURL   string    `json:"avatar_url"`
+	Bio         string    `json:"bio"`
+	Website     string    `json:"website"`
+	Location    string    `json:"location"`
+	DateOfBirth *time.Time `json:"date_of_birth"`
+	Phone       string    `json:"phone"`
+	Preferences string    `gorm:"type:json;default:'{}'" json:"preferences"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	
+	// Relationships
+	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+// AuditLog represents an audit log entry
+type AuditLog struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	UserID       *uint     `json:"user_id"`
+	Action       string    `gorm:"not null" json:"action"`
+	ResourceType string    `json:"resource_type"`
+	ResourceID   string    `json:"resource_id"`
+	Details      string    `gorm:"type:json" json:"details"`
+	IPAddress    string    `json:"ip_address"`
+	UserAgent    string    `json:"user_agent"`
+	CreatedAt    time.Time `json:"created_at"`
+	
+	// Relationships
+	User *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+// Repository pattern for common operations
+
+// UserRepository handles user-related database operations
+type UserRepository struct {
+	db *gorm.DB
+}
+
+// NewUserRepository creates a new user repository
+func NewUserRepository() *UserRepository {
+	return &UserRepository{db: DB}
+}
+
+// Create creates a new user
+func (r *UserRepository) Create(user *User) error {
+	return r.db.Create(user).Error
+}
+
+// FindByID finds a user by ID
+func (r *UserRepository) FindByID(id uint) (*User, error) {
+	var user User
+	err := r.db.First(&user, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// FindByEmail finds a user by email
+func (r *UserRepository) FindByEmail(email string) (*User, error) {
+	var user User
+	err := r.db.Where("email = ?", email).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// Update updates a user
+func (r *UserRepository) Update(user *User) error {
+	return r.db.Save(user).Error
+}
+
+// Delete deletes a user
+func (r *UserRepository) Delete(id uint) error {
+	return r.db.Delete(&User{}, id).Error
+}
+
+// List lists users with pagination
+func (r *UserRepository) List(offset, limit int) ([]User, error) {
+	var users []User
+	err := r.db.Offset(offset).Limit(limit).Find(&users).Error
+	return users, err
+}
+
+// SessionRepository handles session-related database operations
+type SessionRepository struct {
+	db *gorm.DB
+}
+
+// NewSessionRepository creates a new session repository
+func NewSessionRepository() *SessionRepository {
+	return &SessionRepository{db: DB}
+}
+
+// Create creates a new session
+func (r *SessionRepository) Create(session *Session) error {
+	return r.db.Create(session).Error
+}
+
+// FindByToken finds a session by refresh token
+func (r *SessionRepository) FindByToken(token string) (*Session, error) {
+	var session Session
+	err := r.db.Where("refresh_token = ?", token).First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+// DeleteByUserID deletes all sessions for a user
+func (r *SessionRepository) DeleteByUserID(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&Session{}).Error
+}
+
+// DeleteExpired deletes expired sessions
+func (r *SessionRepository) DeleteExpired() error {
+	return r.db.Where("expires_at < ?", time.Now()).Delete(&Session{}).Error
+}
+
+// Helper functions
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func getEnvAsInt(key string, fallback int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return fallback
+}
+
+func getEnvAsDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return fallback
+} 

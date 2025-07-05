@@ -1,0 +1,52 @@
+package main
+
+import (
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/swagger"
+	_ "{{.ProjectName}}/docs" // swagger docs
+)
+
+// @title {{.ProjectName}} API
+// @version 1.0
+// @description This is a {{.ProjectName}} server.
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
+func setupSwagger(app *fiber.App) {
+	// Swagger documentation endpoint
+	app.Get("/swagger/*", swagger.HandlerDefault)
+	
+	// Alternative: Redoc endpoint
+	app.Get("/docs", func(c *fiber.Ctx) error {
+		return c.SendFile("./docs/swagger.json")
+	})
+}
+
+// @Summary Health check
+// @Description Get API health status
+// @Tags health
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /health [get]
+func healthCheck(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"status": "healthy",
+		"service": "{{.ProjectName}}",
+		"version": "1.0.0",
+	})
+} 

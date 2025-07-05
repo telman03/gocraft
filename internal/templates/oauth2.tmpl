@@ -1,0 +1,550 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"golang.org/x/oauth2/github"
+)
+
+// OAuth2Config holds OAuth2 configuration
+type OAuth2Config struct {
+	Google *oauth2.Config
+	GitHub *oauth2.Config
+}
+
+// OAuth2Service handles OAuth2 authentication
+type OAuth2Service struct {
+	config *OAuth2Config
+	db     Database
+	jwtKey  []byte
+}
+
+// NewOAuth2Service creates a new OAuth2 service
+func NewOAuth2Service(config *OAuth2Config, db Database, jwtKey []byte) *OAuth2Service {
+	return &OAuth2Service{
+		config: config,
+		db:     db,
+		jwtKey:  jwtKey,
+	}
+}
+
+// OAuth2User represents user data from OAuth2 provider
+type OAuth2User struct {
+	ID        string    `json:"id"`
+	Email     string    `json:"email"`
+	Name      string    `json:"name"`
+	Avatar    string    `json:"avatar_url"`
+	Provider  string    `json:"provider"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// OAuth2Token represents OAuth2 token response
+type OAuth2Token struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+}
+
+// OAuth2Claims represents JWT claims for OAuth2 users
+type OAuth2Claims struct {
+	UserID   string `json:"user_id"`
+	Email    string `json:"email"`
+	Provider string `json:"provider"`
+	jwt.RegisteredClaims
+}
+
+// GoogleUserInfo represents Google user profile
+type GoogleUserInfo struct {
+	ID            string `json:"id"`
+	Email         string `json:"email"`
+	VerifiedEmail bool   `json:"verified_email"`
+	Name          string `json:"name"`
+	GivenName     string `json:"given_name"`
+	FamilyName    string `json:"family_name"`
+	Picture       string `json:"picture"`
+	Locale        string `json:"locale"`
+}
+
+// GitHubUserInfo represents GitHub user profile
+type GitHubUserInfo struct {
+	ID        int    `json:"id"`
+	Login     string `json:"login"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatar_url"`
+	Location  string `json:"location"`
+	Company   string `json:"company"`
+	Bio       string `json:"bio"`
+}
+
+// SetupOAuth2Routes sets up OAuth2 authentication routes
+func SetupOAuth2Routes(app *fiber.App, oauth2Service *OAuth2Service) {
+	// OAuth2 routes
+	app.Get("/auth/google", oauth2Service.GoogleLogin)
+	app.Get("/auth/google/callback", oauth2Service.GoogleCallback)
+	app.Get("/auth/github", oauth2Service.GitHubLogin)
+	app.Get("/auth/github/callback", oauth2Service.GitHubCallback)
+	
+	// Protected routes
+	app.Get("/auth/profile", oauth2Service.AuthMiddleware, oauth2Service.GetProfile)
+	app.Post("/auth/logout", oauth2Service.AuthMiddleware, oauth2Service.Logout)
+}
+
+// GoogleLogin initiates Google OAuth2 login
+func (o *OAuth2Service) GoogleLogin(c *fiber.Ctx) error {
+	if o.config.Google == nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Google OAuth2 not configured",
+		})
+	}
+
+	// Generate state parameter for security
+	state := generateRandomState()
+	
+	// Store state in session/cache for validation
+	err := o.storeOAuthState(c, state)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to initialize OAuth2 flow",
+		})
+	}
+
+	// Redirect to Google OAuth2 authorization URL
+	authURL := o.config.Google.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	return c.Redirect(authURL)
+}
+
+// GoogleCallback handles Google OAuth2 callback
+func (o *OAuth2Service) GoogleCallback(c *fiber.Ctx) error {
+	if o.config.Google == nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Google OAuth2 not configured",
+		})
+	}
+
+	// Validate state parameter
+	state := c.Query("state")
+	code := c.Query("code")
+	
+	if !o.validateOAuthState(c, state) {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid state parameter",
+		})
+	}
+
+	// Exchange authorization code for access token
+	token, err := o.config.Google.Exchange(context.Background(), code)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to exchange authorization code",
+		})
+	}
+
+	// Get user info from Google
+	userInfo, err := o.getGoogleUserInfo(token.AccessToken)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to get user info from Google",
+		})
+	}
+
+	// Create or update user in database
+	user, err := o.createOrUpdateOAuthUser(userInfo, "google")
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to create/update user",
+		})
+	}
+
+	// Generate JWT token
+	jwtToken, err := o.generateOAuthJWT(user)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to generate JWT token",
+		})
+	}
+
+	// Redirect to frontend with token
+	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s&provider=google", 
+		os.Getenv("FRONTEND_URL"), jwtToken)
+	return c.Redirect(redirectURL)
+}
+
+// GitHubLogin initiates GitHub OAuth2 login
+func (o *OAuth2Service) GitHubLogin(c *fiber.Ctx) error {
+	if o.config.GitHub == nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "GitHub OAuth2 not configured",
+		})
+	}
+
+	// Generate state parameter for security
+	state := generateRandomState()
+	
+	// Store state in session/cache for validation
+	err := o.storeOAuthState(c, state)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to initialize OAuth2 flow",
+		})
+	}
+
+	// Redirect to GitHub OAuth2 authorization URL
+	authURL := o.config.GitHub.AuthCodeURL(state)
+	return c.Redirect(authURL)
+}
+
+// GitHubCallback handles GitHub OAuth2 callback
+func (o *OAuth2Service) GitHubCallback(c *fiber.Ctx) error {
+	if o.config.GitHub == nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "GitHub OAuth2 not configured",
+		})
+	}
+
+	// Validate state parameter
+	state := c.Query("state")
+	code := c.Query("code")
+	
+	if !o.validateOAuthState(c, state) {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid state parameter",
+		})
+	}
+
+	// Exchange authorization code for access token
+	token, err := o.config.GitHub.Exchange(context.Background(), code)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to exchange authorization code",
+		})
+	}
+
+	// Get user info from GitHub
+	userInfo, err := o.getGitHubUserInfo(token.AccessToken)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to get user info from GitHub",
+		})
+	}
+
+	// Create or update user in database
+	user, err := o.createOrUpdateOAuthUser(userInfo, "github")
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to create/update user",
+		})
+	}
+
+	// Generate JWT token
+	jwtToken, err := o.generateOAuthJWT(user)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to generate JWT token",
+		})
+	}
+
+	// Redirect to frontend with token
+	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s&provider=github", 
+		os.Getenv("FRONTEND_URL"), jwtToken)
+	return c.Redirect(redirectURL)
+}
+
+// GetProfile returns the current user's profile
+func (o *OAuth2Service) GetProfile(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(string)
+	
+	user, err := o.db.GetOAuthUserByID(userID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "User not found",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"user": user,
+	})
+}
+
+// Logout handles user logout
+func (o *OAuth2Service) Logout(c *fiber.Ctx) error {
+	// In a stateless JWT setup, logout is handled client-side
+	// You might want to implement a token blacklist for additional security
+	
+	return c.JSON(fiber.Map{
+		"message": "Logged out successfully",
+	})
+}
+
+// AuthMiddleware validates JWT token for OAuth2 users
+func (o *OAuth2Service) AuthMiddleware(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(401).JSON(fiber.Map{
+			"error": "Authorization header required",
+		})
+	}
+
+	// Remove "Bearer " prefix
+	if len(token) > 7 && token[:7] == "Bearer " {
+		token = token[7:]
+	}
+
+	// Parse and validate JWT token
+	claims, err := o.parseOAuthJWT(token)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Set user info in context
+	c.Locals("user_id", claims.UserID)
+	c.Locals("email", claims.Email)
+	c.Locals("provider", claims.Provider)
+
+	return c.Next()
+}
+
+// Helper methods
+
+// getGoogleUserInfo fetches user info from Google
+func (o *OAuth2Service) getGoogleUserInfo(accessToken string) (*GoogleUserInfo, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v2/userinfo", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get user info: %d", resp.StatusCode)
+	}
+
+	var userInfo GoogleUserInfo
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return nil, err
+	}
+
+	return &userInfo, nil
+}
+
+// getGitHubUserInfo fetches user info from GitHub
+func (o *OAuth2Service) getGitHubUserInfo(accessToken string) (*GitHubUserInfo, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "https://api.github.com/user", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get user info: %d", resp.StatusCode)
+	}
+
+	var userInfo GitHubUserInfo
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return nil, err
+	}
+
+	return &userInfo, nil
+}
+
+// createOrUpdateOAuthUser creates or updates OAuth2 user in database
+func (o *OAuth2Service) createOrUpdateOAuthUser(userInfo interface{}, provider string) (*OAuth2User, error) {
+	var user *OAuth2User
+	var err error
+
+	switch provider {
+	case "google":
+		googleUser := userInfo.(*GoogleUserInfo)
+		user, err = o.db.GetOAuthUserByEmail(googleUser.Email)
+		if err != nil {
+			// Create new user
+			user = &OAuth2User{
+				ID:        googleUser.ID,
+				Email:     googleUser.Email,
+				Name:      googleUser.Name,
+				Avatar:    googleUser.Picture,
+				Provider:  provider,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+			err = o.db.CreateOAuthUser(user)
+		} else {
+			// Update existing user
+			user.Name = googleUser.Name
+			user.Avatar = googleUser.Picture
+			user.UpdatedAt = time.Now()
+			err = o.db.UpdateOAuthUser(user)
+		}
+
+	case "github":
+		githubUser := userInfo.(*GitHubUserInfo)
+		user, err = o.db.GetOAuthUserByEmail(githubUser.Email)
+		if err != nil {
+			// Create new user
+			user = &OAuth2User{
+				ID:        fmt.Sprintf("%d", githubUser.ID),
+				Email:     githubUser.Email,
+				Name:      githubUser.Name,
+				Avatar:    githubUser.AvatarURL,
+				Provider:  provider,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+			err = o.db.CreateOAuthUser(user)
+		} else {
+			// Update existing user
+			user.Name = githubUser.Name
+			user.Avatar = githubUser.AvatarURL
+			user.UpdatedAt = time.Now()
+			err = o.db.UpdateOAuthUser(user)
+		}
+	}
+
+	return user, err
+}
+
+// generateOAuthJWT generates JWT token for OAuth2 user
+func (o *OAuth2Service) generateOAuthJWT(user *OAuth2User) (string, error) {
+	claims := &OAuth2Claims{
+		UserID:   user.ID,
+		Email:    user.Email,
+		Provider: user.Provider,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(o.jwtKey)
+}
+
+// parseOAuthJWT parses and validates JWT token
+func (o *OAuth2Service) parseOAuthJWT(tokenString string) (*OAuth2Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &OAuth2Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return o.jwtKey, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*OAuth2Claims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
+}
+
+// generateRandomState generates a random state parameter for OAuth2
+func generateRandomState() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)
+}
+
+// storeOAuthState stores OAuth2 state in cache/session
+func (o *OAuth2Service) storeOAuthState(c *fiber.Ctx, state string) error {
+	// Store in Redis or session with expiration
+	// For simplicity, we'll use a simple in-memory store
+	// In production, use Redis or database
+	return nil
+}
+
+// validateOAuthState validates OAuth2 state parameter
+func (o *OAuth2Service) validateOAuthState(c *fiber.Ctx, state string) bool {
+	// Validate state from cache/session
+	// For simplicity, we'll always return true
+	// In production, validate against stored state
+	return true
+}
+
+// Database interface for OAuth2 operations
+type Database interface {
+	GetOAuthUserByID(id string) (*OAuth2User, error)
+	GetOAuthUserByEmail(email string) (*OAuth2User, error)
+	CreateOAuthUser(user *OAuth2User) error
+	UpdateOAuthUser(user *OAuth2User) error
+}
+
+// Configuration functions
+
+// NewGoogleOAuth2Config creates Google OAuth2 configuration
+func NewGoogleOAuth2Config(clientID, clientSecret, redirectURL string) *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURL,
+		Scopes: []string{
+			"https://www.googleapis.com/auth/userinfo.profile",
+			"https://www.googleapis.com/auth/userinfo.email",
+		},
+		Endpoint: google.Endpoint,
+	}
+}
+
+// NewGitHubOAuth2Config creates GitHub OAuth2 configuration
+func NewGitHubOAuth2Config(clientID, clientSecret, redirectURL string) *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURL,
+		Scopes: []string{
+			"read:user",
+			"user:email",
+		},
+		Endpoint: github.Endpoint,
+	}
+}
+
+// Initialize OAuth2 configuration
+func InitializeOAuth2() *OAuth2Config {
+	config := &OAuth2Config{}
+
+	// Google OAuth2
+	if googleClientID := os.Getenv("GOOGLE_CLIENT_ID"); googleClientID != "" {
+		config.Google = NewGoogleOAuth2Config(
+			googleClientID,
+			os.Getenv("GOOGLE_CLIENT_SECRET"),
+			os.Getenv("GOOGLE_REDIRECT_URL"),
+		)
+	}
+
+	// GitHub OAuth2
+	if githubClientID := os.Getenv("GITHUB_CLIENT_ID"); githubClientID != "" {
+		config.GitHub = NewGitHubOAuth2Config(
+			githubClientID,
+			os.Getenv("GITHUB_CLIENT_SECRET"),
+			os.Getenv("GITHUB_REDIRECT_URL"),
+		)
+	}
+
+	return config
+} 

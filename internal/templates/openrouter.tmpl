@@ -1,0 +1,299 @@
+package ai
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"time"
+)
+
+// OpenRouterClient handles communication with OpenRouter API
+type OpenRouterClient struct {
+	APIKey     string
+	BaseURL    string
+	HTTPClient *http.Client
+}
+
+// OpenRouterRequest represents a chat completion request
+type OpenRouterRequest struct {
+	Model       string                 `json:"model"`
+	Messages    []Message              `json:"messages"`
+	MaxTokens   int                    `json:"max_tokens,omitempty"`
+	Temperature float64                `json:"temperature,omitempty"`
+	TopP        float64                `json:"top_p,omitempty"`
+	Stream      bool                   `json:"stream,omitempty"`
+	Tools       []Tool                 `json:"tools,omitempty"`
+	ToolChoice  interface{}            `json:"tool_choice,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// OpenRouterResponse represents a chat completion response
+type OpenRouterResponse struct {
+	ID      string   `json:"id"`
+	Choices []Choice `json:"choices"`
+	Usage   Usage    `json:"usage"`
+	Model   string   `json:"model"`
+}
+
+// Message represents a chat message
+type Message struct {
+	Role      string                 `json:"role"`
+	Content   string                 `json:"content"`
+	Name      string                 `json:"name,omitempty"`
+	ToolCalls []ToolCall             `json:"tool_calls,omitempty"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// Choice represents a response choice
+type Choice struct {
+	Index        int     `json:"index"`
+	Message      Message `json:"message"`
+	FinishReason string  `json:"finish_reason"`
+}
+
+// Usage represents token usage
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
+// Tool represents a function tool
+type Tool struct {
+	Type     string     `json:"type"`
+	Function *Function  `json:"function,omitempty"`
+}
+
+// Function represents a function definition
+type Function struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Parameters  map[string]interface{} `json:"parameters"`
+}
+
+// ToolCall represents a tool call
+type ToolCall struct {
+	ID       string                 `json:"id"`
+	Type     string                 `json:"type"`
+	Function FunctionCall           `json:"function"`
+}
+
+// FunctionCall represents a function call
+type FunctionCall struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+// NewOpenRouterClient creates a new OpenRouter client
+func NewOpenRouterClient() *OpenRouterClient {
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	if apiKey == "" {
+		panic("OPENROUTER_API_KEY environment variable is required")
+	}
+
+	return &OpenRouterClient{
+		APIKey:  apiKey,
+		BaseURL: "https://openrouter.ai/api/v1",
+		HTTPClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+// ChatCompletion sends a chat completion request
+func (c *OpenRouterClient) ChatCompletion(req OpenRouterRequest) (*OpenRouterResponse, error) {
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/chat/completions", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("HTTP-Referer", os.Getenv("APP_URL"))
+	httpReq.Header.Set("X-Title", os.Getenv("APP_NAME"))
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var response OpenRouterResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &response, nil
+}
+
+// StreamChatCompletion streams a chat completion response
+func (c *OpenRouterClient) StreamChatCompletion(req OpenRouterRequest, callback func(string) error) error {
+	req.Stream = true
+
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/chat/completions", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("HTTP-Referer", os.Getenv("APP_URL"))
+	httpReq.Header.Set("X-Title", os.Getenv("APP_NAME"))
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("failed to read stream: %w", err)
+		}
+
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if strings.HasPrefix(line, "data: ") {
+			data := strings.TrimPrefix(line, "data: ")
+			if data == "[DONE]" {
+				break
+			}
+
+			var streamResponse OpenRouterResponse
+			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
+				continue
+			}
+
+			if len(streamResponse.Choices) > 0 {
+				content := streamResponse.Choices[0].Message.Content
+				if content != "" {
+					if err := callback(content); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// GetModels retrieves available models
+func (c *OpenRouterClient) GetModels() ([]Model, error) {
+	httpReq, err := http.NewRequest("GET", c.BaseURL+"/models", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var response struct {
+		Data []Model `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return response.Data, nil
+}
+
+// Model represents an available model
+type Model struct {
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Pricing     map[string]interface{} `json:"pricing"`
+	ContextLength int                  `json:"context_length"`
+	Architecture string                `json:"architecture"`
+	TopProvider  string                `json:"top_provider"`
+}
+
+// Helper functions for common AI tasks
+
+// GenerateText generates text using a specific model
+func (c *OpenRouterClient) GenerateText(prompt, model string, maxTokens int) (string, error) {
+	req := OpenRouterRequest{
+		Model:     model,
+		MaxTokens: maxTokens,
+		Messages: []Message{
+			{
+				Role:    "user",
+				Content: prompt,
+			},
+		},
+	}
+
+	resp, err := c.ChatCompletion(req)
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Choices) > 0 {
+		return resp.Choices[0].Message.Content, nil
+	}
+
+	return "", fmt.Errorf("no response generated")
+}
+
+// GenerateCode generates code using a specific model
+func (c *OpenRouterClient) GenerateCode(prompt, language, model string) (string, error) {
+	codePrompt := fmt.Sprintf("Generate %s code for the following request:\n\n%s\n\nProvide only the code without explanations:", language, prompt)
+	
+	return c.GenerateText(codePrompt, model, 2000)
+}
+
+// SummarizeText summarizes text using AI
+func (c *OpenRouterClient) SummarizeText(text, model string) (string, error) {
+	prompt := fmt.Sprintf("Please summarize the following text:\n\n%s", text)
+	
+	return c.GenerateText(prompt, model, 500)
+}
+
+// TranslateText translates text to a target language
+func (c *OpenRouterClient) TranslateText(text, targetLanguage, model string) (string, error) {
+	prompt := fmt.Sprintf("Translate the following text to %s:\n\n%s", targetLanguage, text)
+	
+	return c.GenerateText(prompt, model, 1000)
+} 
