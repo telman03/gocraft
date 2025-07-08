@@ -28,6 +28,11 @@ var featureMappings = map[string]TemplateMapping{
 		DestinationPath: "Dockerfile",
 		IsRootFile:      true,
 	},
+	"docker": {
+		SourcePath:      "dockerfile.tmpl",
+		DestinationPath: "Dockerfile",
+		IsRootFile:      true,
+	},
 	"docker-compose": {
 		SourcePath:      "docker-compose.tmpl",
 		DestinationPath: "docker-compose.yml",
@@ -44,6 +49,11 @@ var featureMappings = map[string]TemplateMapping{
 		IsRootFile:      true,
 	},
 	"env": {
+		SourcePath:      "env.tmpl",
+		DestinationPath: ".env.example",
+		IsRootFile:      true,
+	},
+	"env-config": {
 		SourcePath:      "env.tmpl",
 		DestinationPath: ".env.example",
 		IsRootFile:      true,
@@ -85,9 +95,19 @@ var featureMappings = map[string]TemplateMapping{
 		DestinationPath: "internal/logger/logger.go",
 		IsInternalFile:  true,
 	},
+	"logging": {
+		SourcePath:      "logger.tmpl",
+		DestinationPath: "internal/logger/logger.go",
+		IsInternalFile:  true,
+	},
 
 	// Database related
 	"db": {
+		SourcePath:      "db.tmpl",
+		DestinationPath: "internal/db/db.go",
+		IsInternalFile:  true,
+	},
+	"postgresql": {
 		SourcePath:      "db.tmpl",
 		DestinationPath: "internal/db/db.go",
 		IsInternalFile:  true,
@@ -211,6 +231,11 @@ var featureMappings = map[string]TemplateMapping{
 		DestinationPath: "internal/websocket/websocket.go",
 		IsInternalFile:  true,
 	},
+	"websockets": {
+		SourcePath:      "websocket.tmpl",
+		DestinationPath: "internal/websocket/websocket.go",
+		IsInternalFile:  true,
+	},
 
 	// CLI tools
 	"cobra": {
@@ -238,6 +263,11 @@ var featureMappings = map[string]TemplateMapping{
 
 	// Observability
 	"observability": {
+		SourcePath:      "observability.tmpl",
+		DestinationPath: "internal/observability/observability.go",
+		IsInternalFile:  true,
+	},
+	"prometheus": {
 		SourcePath:      "observability.tmpl",
 		DestinationPath: "internal/observability/observability.go",
 		IsInternalFile:  true,
