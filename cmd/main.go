@@ -17,6 +17,9 @@ func main() {
 	}))
 
 	app.Post("/generate", api.GenerateHandler)
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.SendString("OK")
+	})
 
 	app.Listen(":8080")
 }
