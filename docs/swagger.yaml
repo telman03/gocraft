@@ -1,0 +1,63 @@
+basePath: /
+definitions:
+  handlers.GenerateRequest:
+    properties:
+      features:
+        items:
+          type: string
+        type: array
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Backend generator microservice
+  title: GoCraft API
+  version: "1.0"
+paths:
+  /generate:
+    post:
+      consumes:
+      - application/json
+      description: Accepts selected features and returns a downloadable zip file
+      parameters:
+      - description: Selected Features
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.GenerateRequest'
+      produces:
+      - application/zip
+      responses:
+        "200":
+          description: ZIP file
+          schema:
+            type: file
+      security:
+      - BearerAuth: []
+      summary: Generate Go backend project
+      tags:
+      - Generator
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Accepts credentials and returns a JWT token
+      produces:
+      - application/json
+      responses: {}
+      summary: Authenticate user and return JWT
+      tags:
+      - Auth
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Accepts credentials and returns a JWT token
+      produces:
+      - application/json
+      responses: {}
+      summary: Reguster user and return JWT
+      tags:
+      - Auth
+swagger: "2.0"

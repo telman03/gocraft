@@ -18,24 +18,23 @@ func ZipFolder(source, target string) error {
 	archive := zip.NewWriter(zipfile)
 	defer archive.Close()
 
-	// Walk through the source
+
 	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Skip directories (we only zip files)
 		if info.IsDir() {
 			return nil
 		}
 
-		// Calculate the relative path inside the ZIP
+
 		relPath, err := filepath.Rel(source, path)
 		if err != nil {
 			return err
 		}
 
-		// Open the file
+
 		file, err := os.Open(path)
 		if err != nil {
 			return err
