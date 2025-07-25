@@ -1,4 +1,3 @@
-basePath: /
 definitions:
   handlers.GenerateRequest:
     properties:
@@ -48,6 +47,19 @@ paths:
       - application/json
       responses: {}
       summary: Authenticate user and return JWT
+      tags:
+      - Auth
+  /auth/me:
+    get:
+      consumes:
+      - application/json
+      description: Returns user ID and email from JWT
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - Bearer: []
+      summary: Get current authenticated user
       tags:
       - Auth
   /auth/register:

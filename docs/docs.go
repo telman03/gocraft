@@ -42,6 +42,27 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/auth/me": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Returns user ID and email from JWT",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Get current authenticated user",
+                "responses": {}
+            }
+        },
         "/auth/register": {
             "post": {
                 "description": "Accepts credentials and returns a JWT token",
@@ -161,7 +182,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8080",
-	BasePath:         "/",
+	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "GoCraft API",
 	Description:      "Backend generator microservice",
