@@ -7,6 +7,24 @@ definitions:
           type: string
         type: array
     type: object
+  models.LoginInput:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      password:
+        example: password123
+        type: string
+    type: object
+  models.RegisterInput:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      password:
+        example: password123
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -14,6 +32,42 @@ info:
   title: GoCraft API
   version: "1.0"
 paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Accepts credentials and returns a JWT token
+      parameters:
+      - description: User Login Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginInput'
+      produces:
+      - application/json
+      responses: {}
+      summary: Authenticate user and return JWT
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Accepts credentials and returns a JWT token
+      parameters:
+      - description: User Registration Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RegisterInput'
+      produces:
+      - application/json
+      responses: {}
+      summary: Reguster user and return JWT
+      tags:
+      - Auth
   /generate:
     post:
       consumes:
@@ -38,26 +92,9 @@ paths:
       summary: Generate Go backend project
       tags:
       - Generator
-  /login:
-    post:
-      consumes:
-      - application/json
-      description: Accepts credentials and returns a JWT token
-      produces:
-      - application/json
-      responses: {}
-      summary: Authenticate user and return JWT
-      tags:
-      - Auth
-  /register:
-    post:
-      consumes:
-      - application/json
-      description: Accepts credentials and returns a JWT token
-      produces:
-      - application/json
-      responses: {}
-      summary: Reguster user and return JWT
-      tags:
-      - Auth
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

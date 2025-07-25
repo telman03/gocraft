@@ -1,26 +1,18 @@
 package handlers
 
 import (
-	"time"
-	"os"
 	"log"
+	"os"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/telman03/ai-backend-generator/internal/auth"
 	"github.com/telman03/ai-backend-generator/internal/database"
 	"github.com/telman03/ai-backend-generator/internal/models"
-	"github.com/telman03/ai-backend-generator/internal/auth"
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type RegisterInput struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
 
 
 // RegisterHandler godoc
@@ -29,9 +21,10 @@ type LoginRequest struct {
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Router /register [post]
+// @Param request body models.RegisterInput true "User Registration Request"
+// @Router /auth/register [post]
 func Register(c *fiber.Ctx) error {
-	var body RegisterInput
+	var body models.RegisterInput
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid input")
 	}
@@ -60,9 +53,10 @@ func Register(c *fiber.Ctx) error {
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Router /login [post]
+// @Param request body models.LoginInput true "User Login Request"
+// @Router /auth/login [post]
 func Login(c *fiber.Ctx) error {
-	var req LoginRequest
+	var req models.LoginInput
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}

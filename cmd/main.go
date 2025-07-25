@@ -19,6 +19,9 @@ import (
 // @description Backend generator microservice
 // @host localhost:8080
 // @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
@@ -39,15 +42,7 @@ func main() {
 	// Swagger route
 	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
-	// HealthCheck godoc
-	// @Summary Health check
-	// @Description Returns OK if server is alive
-	// @Tags Health
-	// @Success 200 {string} string "OK"
-	// @Router /health [get]
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.SendString("OK")
-	})
+
 
 	app.Post("/auth/login", handlers.Login)
 	app.Post("/auth/register", handlers.Register)
