@@ -281,8 +281,17 @@ var featureMappings = map[string]TemplateMapping{
 	},
 }
 
-func GenerateProject(features []string) (string, error) {
-	id := uuid.New().String()
+func GenerateProject(projectName string, features []string) (string, error) {
+	// Fallback to a UUID if no project name is provided
+	id := projectName
+	if id == "" {
+		id = uuid.New().String()
+	}
+
+	// Sanitize project name for file system (replace spaces and special characters)
+	id = strings.ReplaceAll(id, " ", "-")
+	id = strings.ToLower(id)
+
 	projectPath := filepath.Join("output", id)
 
 	// Create project directory
@@ -359,7 +368,7 @@ func GenerateProject(features []string) (string, error) {
 	if _, err := os.Stat(mainTemplatePath); err == nil {
 		mainDestPath := filepath.Join(projectPath, "main.go")
 		templateData := map[string]interface{}{
-			"ProjectName": "myapp",
+			"ProjectName": id,
 			"Features":    features,
 			"Flags":       flags,
 		}

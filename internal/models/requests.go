@@ -11,5 +11,6 @@ type LoginInput struct {
 }
 
 type GenerateRequest struct {
-	Features []string `json:"features"`
+	ProjectName string   `json:"projectName" example:"my-awesome-app"`
+	Features    []string `json:"features"`
 }
