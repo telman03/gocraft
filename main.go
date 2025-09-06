@@ -8,18 +8,19 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/telman03/ai-backend-generator/internal/database"
 
+	fiberSwagger "github.com/swaggo/fiber-swagger"
+	_ "github.com/telman03/ai-backend-generator/docs"
 	"github.com/telman03/ai-backend-generator/internal/api"
-	_ "github.com/telman03/ai-backend-generator/docs" 
-	"github.com/swaggo/fiber-swagger"                 
 )
 
 // @title GoCraft API
 // @version 1.0
 // @description Backend generator microservice
-// @host localhost:8080
+// @security BearerAuth
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
+// @description Enter your JWT token in the format: Bearer <token>
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
@@ -40,10 +41,7 @@ func main() {
 	// Swagger route
 	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
-
-
 	api.SetupRoutes(app)
 
-
-	log.Fatal(app.Listen(":8080"))
+	log.Fatal(app.Listen(":8081"))
 }

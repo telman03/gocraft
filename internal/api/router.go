@@ -8,16 +8,16 @@ import (
 
 func SetupRoutes(app *fiber.App) {
 
-	
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Welcome to GoCraft API 🚀"})
 	})
 	// Auth routes
 	auth := app.Group("/auth")
 	auth.Post("/register", handlers.Register)
-	auth.Post("/login", handlers.Login)     
-	auth.Get("/me", handlers.GetCurrentUser, middleware.RequireAuth)
-	// Protected route
+	auth.Post("/login", handlers.Login)
+	auth.Get("/me", middleware.RequireAuth, handlers.GetCurrentUser)
+
+	// Zip gen.
 	secure := app.Group("/generate", middleware.RequireAuth)
 	secure.Post("/", handlers.Generate)
 }

@@ -13,9 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-
-
-// RegisterHandler godoc
+// Register RegisterHandler godoc
 // @Summary Reguster user and return JWT
 // @Description Accepts credentials and returns a JWT token
 // @Tags Auth
@@ -47,7 +45,7 @@ func Register(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"token": token})
 }
 
-// LoginHandler godoc
+// Login LoginHandler godoc
 // @Summary Authenticate user and return JWT
 // @Description Accepts credentials and returns a JWT token
 // @Tags Auth
@@ -91,27 +89,24 @@ func Login(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"token": signedToken})
 }
 
-
 // GetCurrentUser godoc
 // @Summary Get current authenticated user
 // @Description Returns user ID and email from JWT
 // @Tags Auth
-// @Security Bearer
+// @Security BearerAuth
 // @Accept json
 // @Produce json
 // @Router /auth/me [get]
 func GetCurrentUser(c *fiber.Ctx) error {
 	userID := c.Locals("user_id")
-	email := c.Locals("user_email") // Optional if you include it in the token claims
 
-	if userID == nil || email == nil {
+	if userID == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "User not authenticated",
 		})
 	}
 
 	return c.JSON(fiber.Map{
-		"id":    userID,
-		"email": email,
+		"id": userID,
 	})
 }

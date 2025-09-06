@@ -6,7 +6,6 @@
         "contact": {},
         "version": "1.0"
     },
-    "host": "localhost:8080",
     "paths": {
         "/auth/login": {
             "post": {
@@ -39,7 +38,7 @@
             "get": {
                 "security": [
                     {
-                        "Bearer": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Returns user ID and email from JWT",
@@ -108,23 +107,16 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.GenerateRequest"
+                            "$ref": "#/definitions/models.GenerateRequest"
                         }
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "ZIP file",
-                        "schema": {
-                            "type": "file"
-                        }
-                    }
-                }
+                "responses": {}
             }
         }
     },
     "definitions": {
-        "handlers.GenerateRequest": {
+        "models.GenerateRequest": {
             "type": "object",
             "properties": {
                 "features": {
@@ -164,9 +156,15 @@
     },
     "securityDefinitions": {
         "BearerAuth": {
+            "description": "Enter your JWT token in the format: Bearer \u003ctoken\u003e",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
         }
-    }
+    },
+    "security": [
+        {
+            "BearerAuth": []
+        }
+    ]
 }
