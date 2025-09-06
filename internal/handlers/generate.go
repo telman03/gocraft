@@ -29,9 +29,9 @@ func Generate(c *fiber.Ctx) error {
 	}
 
 	// Optionally log userID or track usage
-	fmt.Printf("Generating project for user: %v\n", userID)
+	fmt.Printf("Generating project '%s' for user: %v\n", req.ProjectName, userID)
 
-	zipPath, err := builder.GenerateProject(req.Features)
+	zipPath, err := builder.GenerateProject(req.ProjectName, req.Features)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
