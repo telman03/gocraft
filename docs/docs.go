@@ -46,7 +46,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "Bearer": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Returns user ID and email from JWT",
@@ -115,23 +115,16 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.GenerateRequest"
+                            "$ref": "#/definitions/models.GenerateRequest"
                         }
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "ZIP file",
-                        "schema": {
-                            "type": "file"
-                        }
-                    }
-                }
+                "responses": {}
             }
         }
     },
     "definitions": {
-        "handlers.GenerateRequest": {
+        "models.GenerateRequest": {
             "type": "object",
             "properties": {
                 "features": {
@@ -171,17 +164,23 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "BearerAuth": {
+            "description": "Enter your JWT token in the format: Bearer \u003ctoken\u003e",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
         }
-    }
+    },
+    "security": [
+        {
+            "BearerAuth": []
+        }
+    ]
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8080",
+	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "GoCraft API",

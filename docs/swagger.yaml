@@ -1,5 +1,5 @@
 definitions:
-  handlers.GenerateRequest:
+  models.GenerateRequest:
     properties:
       features:
         items:
@@ -24,7 +24,6 @@ definitions:
         example: password123
         type: string
     type: object
-host: localhost:8080
 info:
   contact: {}
   description: Backend generator microservice
@@ -58,7 +57,7 @@ paths:
       - application/json
       responses: {}
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: Get current authenticated user
       tags:
       - Auth
@@ -91,21 +90,20 @@ paths:
         name: data
         required: true
         schema:
-          $ref: '#/definitions/handlers.GenerateRequest'
+          $ref: '#/definitions/models.GenerateRequest'
       produces:
       - application/zip
-      responses:
-        "200":
-          description: ZIP file
-          schema:
-            type: file
+      responses: {}
       security:
       - BearerAuth: []
       summary: Generate Go backend project
       tags:
       - Generator
+security:
+- BearerAuth: []
 securityDefinitions:
   BearerAuth:
+    description: 'Enter your JWT token in the format: Bearer <token>'
     in: header
     name: Authorization
     type: apiKey
