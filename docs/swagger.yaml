@@ -5,6 +5,9 @@ definitions:
         items:
           type: string
         type: array
+      projectName:
+        example: my-awesome-app
+        type: string
     type: object
   models.LoginInput:
     properties:
@@ -22,6 +25,21 @@ definitions:
         type: string
       password:
         example: password123
+        type: string
+    type: object
+  models.ResendOTPInput:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+    type: object
+  models.VerifyOTPInput:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      otp:
+        example: "123456"
         type: string
     type: object
 info:
@@ -65,7 +83,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Accepts credentials and returns a JWT token
+      description: Accepts credentials, creates user, and sends OTP verification email
       parameters:
       - description: User Registration Request
         in: body
@@ -76,7 +94,43 @@ paths:
       produces:
       - application/json
       responses: {}
-      summary: Reguster user and return JWT
+      summary: Register user and send OTP verification
+      tags:
+      - Auth
+  /auth/resend-otp:
+    post:
+      consumes:
+      - application/json
+      description: Resend the OTP code for verification
+      parameters:
+      - description: Resend OTP Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ResendOTPInput'
+      produces:
+      - application/json
+      responses: {}
+      summary: Resend OTP code
+      tags:
+      - Auth
+  /auth/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Verify the OTP code sent during registration
+      parameters:
+      - description: OTP Verification Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.VerifyOTPInput'
+      produces:
+      - application/json
+      responses: {}
+      summary: Verify OTP code
       tags:
       - Auth
   /generate:

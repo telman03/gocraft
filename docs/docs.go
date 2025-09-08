@@ -65,7 +65,7 @@ const docTemplate = `{
         },
         "/auth/register": {
             "post": {
-                "description": "Accepts credentials and returns a JWT token",
+                "description": "Accepts credentials, creates user, and sends OTP verification email",
                 "consumes": [
                     "application/json"
                 ],
@@ -75,7 +75,7 @@ const docTemplate = `{
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Reguster user and return JWT",
+                "summary": "Register user and send OTP verification",
                 "parameters": [
                     {
                         "description": "User Registration Request",
@@ -84,6 +84,60 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/models.RegisterInput"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/auth/resend-otp": {
+            "post": {
+                "description": "Resend the OTP code for verification",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Resend OTP code",
+                "parameters": [
+                    {
+                        "description": "Resend OTP Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ResendOTPInput"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/auth/verify-otp": {
+            "post": {
+                "description": "Verify the OTP code sent during registration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Verify OTP code",
+                "parameters": [
+                    {
+                        "description": "OTP Verification Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.VerifyOTPInput"
                         }
                     }
                 ],
@@ -132,6 +186,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "projectName": {
+                    "type": "string",
+                    "example": "my-awesome-app"
                 }
             }
         },
@@ -158,6 +216,28 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "example": "password123"
+                }
+            }
+        },
+        "models.ResendOTPInput": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                }
+            }
+        },
+        "models.VerifyOTPInput": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "otp": {
+                    "type": "string",
+                    "example": "123456"
                 }
             }
         }
