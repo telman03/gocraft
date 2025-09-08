@@ -15,7 +15,12 @@ func ApplyTemplate(srcPath, destPath string, data any) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			return
+		}
+	}(f)
 
 	return tmpl.Execute(f, data)
 }

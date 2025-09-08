@@ -438,7 +438,7 @@ func createGoMod(projectPath string, features []string) error {
 }
 
 func getDependencies(features []string) []string {
-	deps := []string{}
+	var deps []string
 
 	for _, feature := range features {
 		feature = strings.ToLower(feature)

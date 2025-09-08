@@ -1,11 +1,12 @@
 package auth
 
 import (
-	"time"
 	"os"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 	// "errors"
 	"golang.org/x/crypto/bcrypt"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 var jwtKey = []byte(os.Getenv("JWT_SECRET"))
@@ -15,17 +16,14 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(bytes), err
 }
 
-
-func CheckPassword(hash, password string) error {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-}
-
+//func CheckPassword(hash, password string) error {
+//	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+//}
 
 func GenerateJWT(userID uint) (string, error) {
 	claims := &Claims{
