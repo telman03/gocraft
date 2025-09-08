@@ -1,15 +1,22 @@
 package auth
 
 import (
+	"errors"
 	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	// "errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtKey = []byte(os.Getenv("JWT_SECRET"))
+// GetJWTSecret returns the JWT secret from environment variables
+func GetJWTSecret() ([]byte, error) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return nil, errors.New("JWT_SECRET environment variable not set")
+	}
+	return []byte(secret), nil
+}
 
 type Claims struct {
 	UserID uint `json:"user_id"`
@@ -26,12 +33,17 @@ func HashPassword(password string) (string, error) {
 //}
 
 func GenerateJWT(userID uint) (string, error) {
-	claims := &Claims{
-		UserID: userID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
-		},
+	// Get the JWT secret
+	jwtSecret, err := GetJWTSecret()
+	if err != nil {
+		return "", err
+	}
+
+	// Using MapClaims with "sub" for the user ID to match the Login function
+	claims := jwt.MapClaims{
+		"sub": userID,
+		"exp": time.Now().Add(7 * 24 * time.Hour).Unix(), // Token valid for 7 days
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtKey)
+	return token.SignedString(jwtSecret)
 }

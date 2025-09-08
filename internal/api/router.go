@@ -19,6 +19,10 @@ func SetupRoutes(app *fiber.App) {
 	auth.Post("/login", handlers.Login)
 	auth.Get("/me", middleware.RequireAuth, handlers.GetCurrentUser)
 
+	// User routes
+	user := app.Group("/user", middleware.RequireAuth)
+	user.Get("/profile", handlers.GetUserProfile)
+
 	// Zip gen.
 	secure := app.Group("/generate", middleware.RequireAuth)
 	secure.Post("/", handlers.Generate)

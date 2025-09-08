@@ -33,6 +33,19 @@ definitions:
         example: user@example.com
         type: string
     type: object
+  models.UserProfileResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      is_verified:
+        type: boolean
+      updated_at:
+        type: string
+    type: object
   models.VerifyOTPInput:
     properties:
       email:
@@ -153,6 +166,35 @@ paths:
       summary: Generate Go backend project
       tags:
       - Generator
+  /user/profile:
+    get:
+      consumes:
+      - application/json
+      description: Returns the profile information for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UserProfileResponse'
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - User
 security:
 - BearerAuth: []
 securityDefinitions:

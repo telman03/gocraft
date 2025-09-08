@@ -2,11 +2,11 @@ package middleware
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/telman03/ai-backend-generator/internal/auth"
 )
 
 func RequireAuth(c *fiber.Ctx) error {
@@ -25,16 +25,17 @@ func RequireAuth(c *fiber.Ctx) error {
 	}
 	tokenStr := parts[1]
 
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		fmt.Println("[DEBUG] JWT_SECRET is not set")
+	// Get the JWT secret using the auth package's function
+	jwtSecret, err := auth.GetJWTSecret()
+	if err != nil {
+		fmt.Printf("[DEBUG] JWT_SECRET error: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Server misconfiguration",
 		})
 	}
 
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-		return []byte(jwtSecret), nil
+		return jwtSecret, nil
 	})
 	if err != nil || !token.Valid {
 		fmt.Printf("[DEBUG] JWT parse error: %v\n", err)
