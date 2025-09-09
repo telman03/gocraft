@@ -2,11 +2,9 @@ package handlers
 
 import (
 	"log"
-	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/telman03/ai-backend-generator/internal/auth"
 	"github.com/telman03/ai-backend-generator/internal/database"
 	"github.com/telman03/ai-backend-generator/internal/models"
@@ -216,19 +214,8 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Incorrect password"})
 	}
 
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		log.Println("Missing JWT_SECRET")
-		return c.SendStatus(fiber.StatusInternalServerError)
-	}
-
-	claims := jwt.MapClaims{
-		"sub": user.ID,
-		"exp": time.Now().Add(7 * 24 * time.Hour).Unix(), // Token valid for 7 days
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString([]byte(jwtSecret))
+	// Use the centralized token generation function
+	signedToken, err := auth.GenerateJWT(user.ID)
 	if err != nil {
 		log.Println("Token sign error:", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
