@@ -19,8 +19,12 @@ func SetupRoutes(app *fiber.App) {
 	auth.Post("/login", handlers.Login)
 	auth.Get("/me", middleware.RequireAuth, handlers.GetCurrentUser)
 
-	// Project generation
+	// Feature validation (public endpoint)
+	app.Get("/features", handlers.GetSupportedFeatures)
+	
+	// Project generation and validation
 	secure := app.Group("/generate", middleware.RequireAuth)
 	secure.Post("/", handlers.Generate)
 	secure.Post("/verify", handlers.VerifyGeneration)
+	secure.Post("/validate", handlers.ValidateFeatures)
 }

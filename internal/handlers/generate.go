@@ -7,6 +7,7 @@ import (
 	"github.com/telman03/ai-backend-generator/internal/builder"
 	"github.com/telman03/ai-backend-generator/internal/models"
 	"github.com/telman03/ai-backend-generator/internal/utils"
+	"github.com/telman03/ai-backend-generator/internal/validation"
 )
 
 // Generate GenerateHandler godoc
@@ -34,10 +35,25 @@ func Generate(c *fiber.Ctx) error {
 		return utils.SendValidationError(c, validationErr)
 	}
 
-	// Optionally log userID or track usage
-	fmt.Printf("Generating project '%s' for user: %v\n", req.ProjectName, userID)
+	// Validate template conflicts
+	validator := validation.NewTemplateValidator()
+	validationResult := validator.ValidateFeatures(req.Features)
+	
+	if !validationResult.IsValid {
+		return c.Status(fiber.StatusBadRequest).JSON(map[string]interface{}{
+			"error": "Feature validation failed",
+			"validation_result": validationResult,
+			"message": "Please resolve the conflicts and try again",
+		})
+	}
 
-	zipPath, err := builder.GenerateProject(req.ProjectName, req.Features)
+	// Use adjusted features (with dependencies added)
+	adjustedFeatures := validationResult.AdjustedFeatures
+
+	// Optionally log userID or track usage
+	fmt.Printf("Generating project '%s' for user: %v with features: %v\n", req.ProjectName, userID, adjustedFeatures)
+
+	zipPath, err := builder.GenerateProject(req.ProjectName, adjustedFeatures)
 	if err != nil {
 		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate project", map[string]string{
 			"details": err.Error(),

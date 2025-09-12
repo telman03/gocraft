@@ -201,6 +201,11 @@ var featureMappings = map[string]TemplateMapping{
 		DestinationPath: "internal/framework/echo.go",
 		IsInternalFile:  true,
 	},
+	"fiber": {
+		SourcePath:      "fiber.tmpl",
+		DestinationPath: "internal/framework/fiber.go",
+		IsInternalFile:  true,
+	},
 
 	// API Documentation
 	"swagger": {
@@ -525,6 +530,8 @@ func getDependencies(features []string) []string {
 			deps = append(deps, "\tgithub.com/gin-gonic/gin v1.9.1")
 		case "echo":
 			deps = append(deps, "\tgithub.com/labstack/echo/v4 v4.11.4")
+		case "fiber":
+			deps = append(deps, "\tgithub.com/gofiber/fiber/v2 v2.52.0")
 		case "postgresql":
 			deps = append(deps, "\tgithub.com/lib/pq v1.10.9")
 		case "mysql":
