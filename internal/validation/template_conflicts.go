@@ -140,29 +140,43 @@ func (v *TemplateValidator) normalizeFeatures(features []string) []string {
 func (v *TemplateValidator) validateDatabases(features []string, result *ValidationResult) {
 	selectedRelational := v.filterFeatures(features, v.relationalDBs)
 	selectedNoSQL := v.filterFeatures(features, v.nosqlDBs)
-	_ = v.filterFeatures(features, v.cacheDBs) // Cache DBs don't have conflicts
+	selectedCache := v.filterFeatures(features, v.cacheDBs)
 	
-	// Rule: Only one relational database allowed
+	// Rule: Only one primary database allowed (relational OR NoSQL)
+	allPrimaryDBs := append(selectedRelational, selectedNoSQL...)
+	if len(allPrimaryDBs) > 1 {
+		result.Errors = append(result.Errors, &ConflictError{
+			Message:   fmt.Sprintf("Multiple primary databases selected: %s", strings.Join(allPrimaryDBs, ", ")),
+			Conflicts: allPrimaryDBs,
+			Suggestions: []string{
+				"Choose only one primary database:",
+				"• Relational: MySQL, PostgreSQL, or SQLite",
+				"• NoSQL: MongoDB",
+				"• Cache databases (Redis, Badger) can be used alongside any primary database",
+			},
+		})
+	}
+	
+	// Rule: Only one relational database allowed (if multiple relational selected)
 	if len(selectedRelational) > 1 {
 		result.Errors = append(result.Errors, &ConflictError{
 			Message:   fmt.Sprintf("Multiple relational databases selected: %s", strings.Join(selectedRelational, ", ")),
 			Conflicts: selectedRelational,
 			Suggestions: []string{
 				"Choose only one relational database (MySQL, PostgreSQL, or SQLite)",
-				"MongoDB and Redis can be used alongside a relational database",
 			},
 		})
 	}
 	
 	// Warning: No database selected
 	if len(selectedRelational) == 0 && len(selectedNoSQL) == 0 {
-		result.Warnings = append(result.Warnings, "No database selected. Consider adding a database for data persistence.")
+		result.Warnings = append(result.Warnings, "No primary database selected. Consider adding a database for data persistence.")
 	}
 	
-	// Info: Multiple database types (allowed)
-	if len(selectedRelational) > 0 && len(selectedNoSQL) > 0 {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("Using multiple database types: %s. Ensure your application handles multiple connections properly.", 
-			strings.Join(append(selectedRelational, selectedNoSQL...), ", ")))
+	// Info: Cache databases are complementary
+	if len(selectedCache) > 0 && len(allPrimaryDBs) > 0 {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("Using cache database (%s) alongside primary database (%s). This is a good practice for performance.", 
+			strings.Join(selectedCache, ", "), strings.Join(allPrimaryDBs, ", ")))
 	}
 }
 

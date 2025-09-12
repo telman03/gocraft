@@ -8,16 +8,28 @@ The backend now has a **Template Validation System** that prevents users from se
 
 ### 1. **Database Conflicts** (Most Important)
 ```javascript
-// ❌ INVALID - Multiple relational databases
+// ❌ INVALID - Multiple primary databases
 {
-  "features": ["mysql", "postgresql", "sqlite"]
-  // Error: "You can't have multiple relational databases in one project"
+  "features": ["mysql", "postgresql", "mongodb"]
+  // Error: "You can't have multiple primary databases in one project"
 }
 
-// ✅ VALID - One relational + others
+// ❌ INVALID - MongoDB + Relational DB
 {
-  "features": ["postgresql", "mongodb", "redis"]
-  // OK: Different database types can coexist
+  "features": ["postgresql", "mongodb"]
+  // Error: "Choose only one primary database: PostgreSQL OR MongoDB"
+}
+
+// ✅ VALID - One primary + cache
+{
+  "features": ["postgresql", "redis"]
+  // OK: PostgreSQL (primary) + Redis (cache)
+}
+
+// ✅ VALID - MongoDB + cache
+{
+  "features": ["mongodb", "redis"]
+  // OK: MongoDB (primary) + Redis (cache)
 }
 ```
 
@@ -80,9 +92,9 @@ GET /features
   },
   "conflict_rules": {
     "databases": {
-      "rule": "Only one relational database allowed",
-      "allowed": "MySQL OR PostgreSQL OR SQLite (+ optional MongoDB/Redis)",
-      "forbidden": "Multiple relational databases together"
+      "rule": "Only one primary database allowed",
+      "allowed": "MySQL OR PostgreSQL OR SQLite OR MongoDB (+ optional Redis/Badger cache)",
+      "forbidden": "Multiple primary databases together (e.g., PostgreSQL + MongoDB)"
     },
     // ... more rules
   }
@@ -134,8 +146,10 @@ Content-Type: application/json
         "message": "Multiple relational databases selected: mysql, postgresql",
         "conflicts": ["mysql", "postgresql"],
         "suggestions": [
-          "Choose only one relational database (MySQL, PostgreSQL, or SQLite)",
-          "MongoDB and Redis can be used alongside a relational database"
+          "Choose only one primary database:",
+          "• Relational: MySQL, PostgreSQL, or SQLite", 
+          "• NoSQL: MongoDB",
+          "• Cache databases (Redis, Badger) can be used alongside any primary database"
         ]
       }
     ]

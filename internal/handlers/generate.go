@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/telman03/ai-backend-generator/internal/builder"
@@ -50,8 +51,14 @@ func Generate(c *fiber.Ctx) error {
 	// Use adjusted features (with dependencies added)
 	adjustedFeatures := validationResult.AdjustedFeatures
 
-	// Optionally log userID or track usage
-	fmt.Printf("Generating project '%s' for user: %v with features: %v\n", req.ProjectName, userID, adjustedFeatures)
+	// Generate unique request ID for tracking
+	requestID := c.Get("X-Request-ID")
+	if requestID == "" {
+		requestID = fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	
+	// Log request with unique ID to help debug duplicate downloads
+	fmt.Printf("[REQ:%s] Generating project '%s' for user: %v with features: %v\n", requestID, req.ProjectName, userID, adjustedFeatures)
 
 	zipPath, err := builder.GenerateProject(req.ProjectName, adjustedFeatures)
 	if err != nil {

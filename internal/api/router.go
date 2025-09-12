@@ -22,6 +22,11 @@ func SetupRoutes(app *fiber.App) {
 	// Feature validation (public endpoint)
 	app.Get("/features", handlers.GetSupportedFeatures)
 	
+	// Debug endpoints (for troubleshooting)
+	debug := app.Group("/debug")
+	debug.Post("/request", handlers.DebugRequest)
+	debug.Post("/download", handlers.DebugDownload)
+	
 	// Project generation and validation
 	secure := app.Group("/generate", middleware.RequireAuth)
 	secure.Post("/", handlers.Generate)
