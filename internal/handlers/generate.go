@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/telman03/ai-backend-generator/internal/builder"
 	"github.com/telman03/ai-backend-generator/internal/models"
+	"github.com/telman03/ai-backend-generator/internal/utils"
 )
 
 // Generate GenerateHandler godoc
@@ -20,12 +21,17 @@ import (
 func Generate(c *fiber.Ctx) error {
 	userID := c.Locals("user_id")
 	if userID == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+		return utils.SendErrorResponse(c, fiber.StatusUnauthorized, "User not authenticated")
 	}
 
 	var req models.GenerateRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request format"})
+		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "Invalid request format")
+	}
+
+	// Validate input
+	if validationErr := utils.ValidateStruct(&req); validationErr != nil {
+		return utils.SendValidationError(c, validationErr)
 	}
 
 	// Optionally log userID or track usage
@@ -33,7 +39,9 @@ func Generate(c *fiber.Ctx) error {
 
 	zipPath, err := builder.GenerateProject(req.ProjectName, req.Features)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate project", map[string]string{
+			"details": err.Error(),
+		})
 	}
 
 	return c.Download(zipPath)

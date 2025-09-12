@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/telman03/ai-backend-generator/internal/utils"
@@ -351,7 +352,7 @@ func GenerateProject(projectName string, features []string) (string, error) {
 
 		// Prepare template data
 		templateData := map[string]interface{}{
-			"ProjectName": "myapp", // Default project name
+			"ProjectName": projectName,
 			"Features":    features,
 			"Flags":       flags,
 		}
@@ -368,7 +369,7 @@ func GenerateProject(projectName string, features []string) (string, error) {
 	if _, err := os.Stat(mainTemplatePath); err == nil {
 		mainDestPath := filepath.Join(projectPath, "main.go")
 		templateData := map[string]interface{}{
-			"ProjectName": id,
+			"ProjectName": projectName,
 			"Features":    features,
 			"Flags":       flags,
 		}
@@ -391,6 +392,16 @@ func GenerateProject(projectName string, features []string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create zip: %v", err)
 	}
+
+	// Schedule cleanup of old files (older than 1 hour)
+	go func() {
+		if err := utils.CleanupOldFiles("output", 1*time.Hour); err != nil {
+			fmt.Printf("Cleanup error: %v\n", err)
+		}
+	}()
+
+	// Schedule cleanup of current files after 10 minutes (enough time for download)
+	utils.CleanupAfterDownload(zipPath, projectPath, 10*time.Minute)
 
 	return zipPath, nil
 }
@@ -419,8 +430,11 @@ func updateFlags(feature string, flags map[string]bool) {
 }
 
 func createGoMod(projectPath string, features []string) error {
+	// Extract project name from path
+	projectName := filepath.Base(projectPath)
+	
 	// Create a basic go.mod file
-	goModContent := "module myapp\n\n"
+	goModContent := fmt.Sprintf("module %s\n\n", projectName)
 	goModContent += "go 1.21\n\n"
 	goModContent += "require (\n"
 	goModContent += "\tgithub.com/gofiber/fiber/v2 v2.52.0\n"

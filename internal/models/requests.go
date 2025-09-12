@@ -1,25 +1,25 @@
 package models
 
 type RegisterInput struct {
-	Email    string `json:"email" example:"user@example.com"`
-	Password string `json:"password" example:"password123"`
+	Email    string `json:"email" validate:"required,email" example:"user@example.com"`
+	Password string `json:"password" validate:"required,min=8,max=128" example:"password123"`
 }
 
 type VerifyOTPInput struct {
-	Email string `json:"email" example:"user@example.com"`
-	OTP   string `json:"otp" example:"123456"`
+	Email string `json:"email" validate:"required,email" example:"user@example.com"`
+	OTP   string `json:"otp" validate:"required,len=6,numeric" example:"123456"`
 }
 
 type ResendOTPInput struct {
-	Email string `json:"email" example:"user@example.com"`
+	Email string `json:"email" validate:"required,email" example:"user@example.com"`
 }
 
 type LoginInput struct {
-	Email    string `json:"email" example:"user@example.com"`
-	Password string `json:"password" example:"password123"`
+	Email    string `json:"email" validate:"required,email" example:"user@example.com"`
+	Password string `json:"password" validate:"required,min=1,max=128" example:"password123"`
 }
 
 type GenerateRequest struct {
-	ProjectName string   `json:"projectName" example:"my-awesome-app"`
-	Features    []string `json:"features"`
+	ProjectName string   `json:"projectName" validate:"required,min=1,max=50,alphanum" example:"my-awesome-app"`
+	Features    []string `json:"features" validate:"required,min=1"`
 }
