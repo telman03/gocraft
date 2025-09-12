@@ -59,6 +59,11 @@ var featureMappings = map[string]TemplateMapping{
 		DestinationPath: ".env.example",
 		IsRootFile:      true,
 	},
+	"environment": {
+		SourcePath:      "env.tmpl",
+		DestinationPath: ".env.example",
+		IsRootFile:      true,
+	},
 	"readme": {
 		SourcePath:      "readme.tmpl",
 		DestinationPath: "README.md",
@@ -312,6 +317,42 @@ func GenerateProject(projectName string, features []string) (string, error) {
 		"CLI":           false,
 		"Testing":       false,
 		"Observability": false,
+		"Logging":       false,
+		"Middleware":    false,
+		"Config":        false,
+	}
+
+	// Pre-process features to set flags before template generation
+	for _, feature := range features {
+		updateFlags(strings.ToLower(feature), flags)
+	}
+
+	// Always generate .env.example file first
+	envTemplatePath := filepath.Join("internal", "templates", "env.tmpl")
+	envDestPath := filepath.Join(projectPath, ".env.example")
+	
+	templateData := map[string]interface{}{
+		"ProjectName": projectName,
+		"Features":    features,
+		"Flags":       flags,
+	}
+
+	if _, err := os.Stat(envTemplatePath); err == nil {
+		err = utils.ApplyTemplate(envTemplatePath, envDestPath, templateData)
+		if err != nil {
+			return "", fmt.Errorf("failed to render .env.example: %v", err)
+		}
+	}
+
+	// Always generate .gitignore file
+	gitignoreTemplatePath := filepath.Join("internal", "templates", "gitignore.tmpl")
+	gitignoreDestPath := filepath.Join(projectPath, ".gitignore")
+	
+	if _, err := os.Stat(gitignoreTemplatePath); err == nil {
+		err = utils.ApplyTemplate(gitignoreTemplatePath, gitignoreDestPath, templateData)
+		if err != nil {
+			return "", fmt.Errorf("failed to render .gitignore: %v", err)
+		}
 	}
 
 	// Process each feature
@@ -324,6 +365,11 @@ func GenerateProject(projectName string, features []string) (string, error) {
 		// Handle special cases
 		if feature == "postgresql" {
 			feature = "db" // Map postgresql to db template
+		}
+
+		// Skip env and gitignore as they're already handled above
+		if feature == "env" || feature == "env-config" || feature == "gitignore" {
+			continue
 		}
 
 		// Get template mapping
@@ -350,7 +396,7 @@ func GenerateProject(projectName string, features []string) (string, error) {
 			continue
 		}
 
-		// Prepare template data
+		// Update template data for this specific feature
 		templateData := map[string]interface{}{
 			"ProjectName": projectName,
 			"Features":    features,
@@ -408,24 +454,30 @@ func GenerateProject(projectName string, features []string) (string, error) {
 
 func updateFlags(feature string, flags map[string]bool) {
 	switch feature {
-	case "auth", "oauth2":
+	case "auth", "oauth2", "jwt", "authentication":
 		flags["Auth"] = true
-	case "db", "postgresql", "mysql", "sqlite", "mongodb", "redis", "badger", "gorm", "sqlc":
+	case "db", "database", "postgresql", "mysql", "sqlite", "mongodb", "redis", "badger", "gorm", "sqlc", "migrations":
 		flags["DB"] = true
-	case "router", "gin", "echo":
+	case "router", "gin", "echo", "fiber", "mux":
 		flags["Router"] = true
-	case "openai", "openrouter", "claude":
+	case "openai", "openrouter", "claude", "ai", "llm":
 		flags["OpenAI"] = true
-	case "grpc", "proto":
+	case "grpc", "proto", "protobuf":
 		flags["gRPC"] = true
-	case "websocket":
+	case "websocket", "websockets", "ws":
 		flags["WebSocket"] = true
-	case "cobra", "urfave-cli":
+	case "cobra", "urfave-cli", "cli":
 		flags["CLI"] = true
-	case "testify", "gomock":
+	case "testify", "gomock", "testing", "test":
 		flags["Testing"] = true
-	case "observability":
+	case "observability", "prometheus", "monitoring", "metrics", "tracing":
 		flags["Observability"] = true
+	case "logging", "logger", "log":
+		flags["Logging"] = true
+	case "middleware":
+		flags["Middleware"] = true
+	case "config", "configuration":
+		flags["Config"] = true
 	}
 }
 
@@ -433,8 +485,14 @@ func createGoMod(projectPath string, features []string) error {
 	// Extract project name from path
 	projectName := filepath.Base(projectPath)
 	
+	// Create a proper module name (avoid single words that might conflict)
+	moduleName := projectName
+	if projectName == "go" || len(projectName) < 3 {
+		moduleName = fmt.Sprintf("github.com/user/%s", projectName)
+	}
+	
 	// Create a basic go.mod file
-	goModContent := fmt.Sprintf("module %s\n\n", projectName)
+	goModContent := fmt.Sprintf("module %s\n\n", moduleName)
 	goModContent += "go 1.21\n\n"
 	goModContent += "require (\n"
 	goModContent += "\tgithub.com/gofiber/fiber/v2 v2.52.0\n"

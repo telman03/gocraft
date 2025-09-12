@@ -41,6 +41,9 @@ func main() {
 	// Swagger route
 	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
+	// Debug page for testing downloads
+	app.Static("/debug", "./debug_download.html")
+
 	api.SetupRoutes(app)
 
 	log.Fatal(app.Listen(":8081"))

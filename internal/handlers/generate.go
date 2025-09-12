@@ -44,5 +44,9 @@ func Generate(c *fiber.Ctx) error {
 		})
 	}
 
+	// Set proper headers for download
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", req.ProjectName))
+	c.Set("Content-Type", "application/zip")
+	
 	return c.Download(zipPath)
 }
