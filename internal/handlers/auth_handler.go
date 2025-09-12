@@ -23,25 +23,43 @@ import (
 func Register(c *fiber.Ctx) error {
 	var body models.RegisterInput
 	if err := c.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid input")
+		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "Invalid request format")
 	}
+
+	// Validate input
+	if validationErr := utils.ValidateStruct(&body); validationErr != nil {
+		return utils.SendValidationError(c, validationErr)
+	}
+
+	// Start database transaction
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 
 	// Check if user already exists
 	var existingUser models.User
-	result := database.DB.Where("email = ?", body.Email).First(&existingUser)
+	result := tx.Where("email = ?", body.Email).First(&existingUser)
 	if result.Error == nil {
 		// If user exists but is not verified, allow re-registration
 		if !existingUser.IsVerified {
 			// Delete the unverified user and create a new one
-			database.DB.Delete(&existingUser)
+			if err := tx.Delete(&existingUser).Error; err != nil {
+				tx.Rollback()
+				return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Failed to process registration")
+			}
 		} else {
-			return fiber.NewError(fiber.StatusBadRequest, "Email already exists")
+			tx.Rollback()
+			return utils.SendErrorResponse(c, fiber.StatusBadRequest, "Email already exists")
 		}
 	}
 
 	hashedPwd, err := auth.HashPassword(body.Password)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Password hash failed")
+		tx.Rollback()
+		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Password processing failed")
 	}
 
 	// Generate OTP
@@ -57,8 +75,14 @@ func Register(c *fiber.Ctx) error {
 		IsVerified:   false,
 	}
 
-	if err := database.DB.Create(&user).Error; err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create user")
+	if err := tx.Create(&user).Error; err != nil {
+		tx.Rollback()
+		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Failed to create user")
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Failed to complete registration")
 	}
 
 	// Send OTP email
@@ -85,39 +109,40 @@ func Register(c *fiber.Ctx) error {
 func VerifyOTP(c *fiber.Ctx) error {
 	var body models.VerifyOTPInput
 	if err := c.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid input")
+		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "Invalid request format")
+	}
+
+	// Validate input
+	if validationErr := utils.ValidateStruct(&body); validationErr != nil {
+		return utils.SendValidationError(c, validationErr)
 	}
 
 	var user models.User
 	if err := database.DB.Where("email = ?", body.Email).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User not found",
-		})
+		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "User not found")
 	}
 
 	// Check if OTP is expired
 	if time.Now().After(user.OTPExpiresAt) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "OTP expired. Please request a new one.",
-		})
+		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "OTP expired. Please request a new one.")
 	}
 
 	// Check if OTP matches
 	if user.OTP != body.OTP {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid OTP code.",
-		})
+		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "Invalid OTP code.")
 	}
 
 	// Mark user as verified
 	user.IsVerified = true
 	user.OTP = "" // Clear the OTP
-	database.DB.Save(&user)
+	if err := database.DB.Save(&user).Error; err != nil {
+		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Failed to verify user")
+	}
 
 	// Generate JWT token
 	token, err := auth.GenerateJWT(user.ID)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to generate token")
+		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate token")
 	}
 
 	// Send welcome email
@@ -144,21 +169,22 @@ func VerifyOTP(c *fiber.Ctx) error {
 func ResendOTP(c *fiber.Ctx) error {
 	var body models.ResendOTPInput
 	if err := c.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid input")
+		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "Invalid request format")
+	}
+
+	// Validate input
+	if validationErr := utils.ValidateStruct(&body); validationErr != nil {
+		return utils.SendValidationError(c, validationErr)
 	}
 
 	var user models.User
 	if err := database.DB.Where("email = ?", body.Email).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User not found",
-		})
+		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "User not found")
 	}
 
 	// Don't allow resending OTP for already verified users
 	if user.IsVerified {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User is already verified",
-		})
+		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "User is already verified")
 	}
 
 	// Generate new OTP
@@ -194,31 +220,35 @@ func ResendOTP(c *fiber.Ctx) error {
 func Login(c *fiber.Ctx) error {
 	var req models.LoginInput
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "Invalid request format")
+	}
+
+	// Validate input
+	if validationErr := utils.ValidateStruct(&req); validationErr != nil {
+		return utils.SendValidationError(c, validationErr)
 	}
 
 	var user models.User
 	if err := database.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not found"})
+		return utils.SendErrorResponse(c, fiber.StatusUnauthorized, "Invalid credentials")
 	}
 
 	// Check if the user is verified
 	if !user.IsVerified {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Email not verified. Please verify your email first.",
+		return utils.SendErrorResponse(c, fiber.StatusUnauthorized, "Email not verified. Please verify your email first.", map[string]string{
 			"email": user.Email,
 		})
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Incorrect password"})
+		return utils.SendErrorResponse(c, fiber.StatusUnauthorized, "Invalid credentials")
 	}
 
 	// Use the centralized token generation function
 	signedToken, err := auth.GenerateJWT(user.ID)
 	if err != nil {
 		log.Println("Token sign error:", err)
-		return c.SendStatus(fiber.StatusInternalServerError)
+		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate authentication token")
 	}
 
 	return c.JSON(fiber.Map{"token": signedToken})
@@ -236,9 +266,7 @@ func GetCurrentUser(c *fiber.Ctx) error {
 	userID := c.Locals("user_id")
 
 	if userID == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "User not authenticated",
-		})
+		return utils.SendErrorResponse(c, fiber.StatusUnauthorized, "User not authenticated")
 	}
 
 	return c.JSON(fiber.Map{

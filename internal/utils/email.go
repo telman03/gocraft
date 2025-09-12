@@ -2,10 +2,10 @@ package utils
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -32,13 +32,21 @@ type WelcomeTemplateData struct {
 	UserName string
 }
 
-// GenerateOTP generates a random 6-digit OTP
+// GenerateOTP generates a cryptographically secure random 6-digit OTP
 func GenerateOTP() string {
-	// Seed the random number generator
-	rand.Seed(time.Now().UnixNano())
+	// Generate 6 random bytes
+	bytes := make([]byte, 6)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to timestamp-based generation if crypto/rand fails
+		return fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
+	}
 
-	// Generate a random 6-digit number
-	otp := rand.Intn(900000) + 100000
+	// Convert to 6-digit number
+	var otp int
+	for i, b := range bytes {
+		otp += int(b) * (1 << (8 * i))
+	}
+	otp = (otp % 900000) + 100000
 
 	return fmt.Sprintf("%06d", otp)
 }
