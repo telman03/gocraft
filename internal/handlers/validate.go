@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/telman03/ai-backend-generator/internal/models"
 	"github.com/telman03/ai-backend-generator/internal/utils"
@@ -32,9 +34,26 @@ func ValidateFeatures(c *fiber.Ctx) error {
 		return utils.SendValidationError(c, validationErr)
 	}
 
+	// Merge framework into features if provided separately
+	allFeatures := req.Features
+	if req.Framework != "" {
+		// Check if framework is already in features
+		frameworkExists := false
+		for _, feature := range req.Features {
+			if strings.ToLower(feature) == strings.ToLower(req.Framework) {
+				frameworkExists = true
+				break
+			}
+		}
+		// Add framework to features if not already present
+		if !frameworkExists {
+			allFeatures = append([]string{req.Framework}, req.Features...)
+		}
+	}
+
 	// Validate template conflicts
 	validator := validation.NewTemplateValidator()
-	result := validator.ValidateFeatures(req.Features)
+	result := validator.ValidateFeatures(allFeatures)
 
 	// Return validation result
 	response := map[string]interface{}{

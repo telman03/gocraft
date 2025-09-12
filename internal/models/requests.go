@@ -21,5 +21,6 @@ type LoginInput struct {
 
 type GenerateRequest struct {
 	ProjectName string   `json:"projectName" validate:"required,min=1,max=50,alphanum" example:"my-awesome-app"`
+	Framework   string   `json:"framework,omitempty" example:"gin"`
 	Features    []string `json:"features" validate:"required,min=1"`
 }

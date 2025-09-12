@@ -107,9 +107,17 @@ POST /generate/validate
 Authorization: Bearer <jwt_token>
 Content-Type: application/json
 
+// Option 1: Framework in features array (traditional)
 {
   "projectName": "my-api",
-  "features": ["mysql", "postgresql", "gin"]
+  "features": ["gin", "mysql", "auth"]
+}
+
+// Option 2: Framework as separate field (new format)
+{
+  "projectName": "my-api", 
+  "framework": "fiber",
+  "features": ["mongodb", "auth"]
 }
 ```
 

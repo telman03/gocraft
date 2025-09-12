@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -36,9 +37,26 @@ func Generate(c *fiber.Ctx) error {
 		return utils.SendValidationError(c, validationErr)
 	}
 
+	// Merge framework into features if provided separately
+	allFeatures := req.Features
+	if req.Framework != "" {
+		// Check if framework is already in features
+		frameworkExists := false
+		for _, feature := range req.Features {
+			if strings.ToLower(feature) == strings.ToLower(req.Framework) {
+				frameworkExists = true
+				break
+			}
+		}
+		// Add framework to features if not already present
+		if !frameworkExists {
+			allFeatures = append([]string{req.Framework}, req.Features...)
+		}
+	}
+
 	// Validate template conflicts
 	validator := validation.NewTemplateValidator()
-	validationResult := validator.ValidateFeatures(req.Features)
+	validationResult := validator.ValidateFeatures(allFeatures)
 	
 	if !validationResult.IsValid {
 		return c.Status(fiber.StatusBadRequest).JSON(map[string]interface{}{
@@ -58,7 +76,10 @@ func Generate(c *fiber.Ctx) error {
 	}
 	
 	// Log request with unique ID to help debug duplicate downloads
-	fmt.Printf("[REQ:%s] Generating project '%s' for user: %v with features: %v\n", requestID, req.ProjectName, userID, adjustedFeatures)
+	fmt.Printf("[REQ:%s] Generating project '%s' for user: %v\n", requestID, req.ProjectName, userID)
+	fmt.Printf("[REQ:%s] Original features: %v, Framework: %s\n", requestID, req.Features, req.Framework)
+	fmt.Printf("[REQ:%s] Merged features: %v\n", requestID, allFeatures)
+	fmt.Printf("[REQ:%s] Final adjusted features: %v\n", requestID, adjustedFeatures)
 
 	zipPath, err := builder.GenerateProject(req.ProjectName, adjustedFeatures)
 	if err != nil {
