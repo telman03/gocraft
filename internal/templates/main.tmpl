@@ -1,17 +1,72 @@
 package main
 
 import (
-	"github.com/gofiber/fiber/v2"
-	{{if .Auth}}"your_project/auth"{{end}}
-	{{if .DB}}"your_project/db"{{end}}
-	{{if .Router}}"your_project/router"{{end}}
+	"log"
+	"os"
+	{{if contains .Features "fiber"}}"github.com/gofiber/fiber/v2"{{end}}
+	{{if contains .Features "gin"}}"github.com/gin-gonic/gin"{{end}}
+	{{if contains .Features "echo"}}"github.com/labstack/echo/v4"{{end}}
+	{{if .Flags.Auth}}"{{.ProjectName}}/internal/auth"{{end}}
+	{{if .Flags.DB}}"{{.ProjectName}}/internal/db"{{end}}
+	{{if .Flags.Router}}"{{.ProjectName}}/internal/router"{{end}}
+	{{if .Flags.Config}}"{{.ProjectName}}/internal/config"{{end}}
 )
 
 func main() {
-	app := fiber.New()
+	{{if .Flags.Config}}config.Load(){{end}}
+	{{if .Flags.DB}}db.Connect(){{end}}
 
-	{{if .DB}}db.Connect(){{end}}
-	{{if .Router}}router.SetupRoutes(app){{end}}
-
-	app.Listen(":8080")
+	{{if contains .Features "fiber"}}
+	// Fiber framework
+	app := fiber.New(fiber.Config{
+		AppName: "{{.ProjectName}}",
+	})
+	{{if .Flags.Router}}router.SetupRoutes(app){{end}}
+	
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	
+	log.Printf("Server starting on port %s", port)
+	log.Fatal(app.Listen(":" + port))
+	{{else if contains .Features "gin"}}
+	// Gin framework
+	r := gin.Default()
+	{{if .Flags.Router}}router.SetupRoutes(r){{end}}
+	
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	
+	log.Printf("Server starting on port %s", port)
+	log.Fatal(r.Run(":" + port))
+	{{else if contains .Features "echo"}}
+	// Echo framework
+	e := echo.New()
+	{{if .Flags.Router}}router.SetupRoutes(e){{end}}
+	
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	
+	log.Printf("Server starting on port %s", port)
+	log.Fatal(e.Start(":" + port))
+	{{else}}
+	// Default Fiber framework (fallback)
+	app := fiber.New(fiber.Config{
+		AppName: "{{.ProjectName}}",
+	})
+	{{if .Flags.Router}}router.SetupRoutes(app){{end}}
+	
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	
+	log.Printf("Server starting on port %s", port)
+	log.Fatal(app.Listen(":" + port))
+	{{end}}
 }

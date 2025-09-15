@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"archive/zip"
-	"fmt"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/telman03/ai-backend-generator/internal/builder"
@@ -35,8 +35,25 @@ func VerifyGeneration(c *fiber.Ctx) error {
 		return utils.SendValidationError(c, validationErr)
 	}
 
+	// Merge framework into features if provided separately
+	allFeatures := req.Features
+	if req.Framework != "" {
+		// Check if framework is already in features
+		frameworkExists := false
+		for _, feature := range req.Features {
+			if strings.ToLower(feature) == strings.ToLower(req.Framework) {
+				frameworkExists = true
+				break
+			}
+		}
+		// Add framework to features if not already present
+		if !frameworkExists {
+			allFeatures = append([]string{req.Framework}, req.Features...)
+		}
+	}
+
 	// Generate project
-	zipPath, err := builder.GenerateProject(req.ProjectName, req.Features)
+	zipPath, err := builder.GenerateProject(req.ProjectName, allFeatures)
 	if err != nil {
 		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate project", map[string]string{
 			"details": err.Error(),

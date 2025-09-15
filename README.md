@@ -85,8 +85,13 @@ The generator automatically includes environment variables based on selected fea
 - `POST /auth/login` - User login
 - `GET /auth/me` - Get current user (requires authentication)
 
+### Feature Validation
+- `GET /features` - Get all supported features and conflict rules
+- `POST /generate/validate` - Validate feature combinations (requires authentication)
+
 ### Project Generation
 - `POST /generate` - Generate and download project scaffold (requires authentication)
+- `POST /generate/verify` - Verify project generation and list contents (requires authentication)
 
 ## Quick Start
 
@@ -142,7 +147,18 @@ curl -X POST http://localhost:8081/auth/verify-otp \
   -d '{"email":"user@example.com","otp":"123456"}'
 ```
 
-3. **Generate a project**:
+3. **Validate features** (optional but recommended):
+```bash
+curl -X POST http://localhost:8081/generate/validate \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "projectName": "my-awesome-api",
+    "features": ["postgresql", "auth", "redis", "openai", "websocket"]
+  }'
+```
+
+4. **Generate a project**:
 ```bash
 curl -X POST http://localhost:8081/generate \
   -H "Content-Type: application/json" \
