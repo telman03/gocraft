@@ -81,7 +81,7 @@ func main() {
 	// CORS
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:  "*",
-		AllowMethods:  "GET,POST,OPTIONS",
+		AllowMethods:  "GET,POST,PUT,DELETE,OPTIONS",
 		ExposeHeaders: "Content-Disposition",
 		AllowHeaders:  "Content-Type,Authorization",
 	}))

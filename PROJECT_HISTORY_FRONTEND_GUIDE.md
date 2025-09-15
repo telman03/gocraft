@@ -512,27 +512,71 @@ const SearchAndFilters = ({ onFiltersChange }) => {
 };
 ```
 
-### 4. **API Client Service**
+### 4. **Authentication Helper**
+
+```javascript
+// Authentication utility
+class AuthService {
+  constructor() {
+    this.token = localStorage.getItem('jwt_token');
+  }
+
+  getAuthHeaders() {
+    if (!this.token) {
+      throw new Error('No authentication token available');
+    }
+    return {
+      'Authorization': `Bearer ${this.token}`,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  setToken(token) {
+    this.token = token;
+    localStorage.setItem('jwt_token', token);
+  }
+
+  clearToken() {
+    this.token = null;
+    localStorage.removeItem('jwt_token');
+  }
+
+  isAuthenticated() {
+    return !!this.token;
+  }
+
+  handleAuthError(response) {
+    if (response.status === 401) {
+      this.clearToken();
+      window.location.href = '/login';
+      throw new Error('Authentication required');
+    }
+  }
+}
+
+// Global auth service instance
+const authService = new AuthService();
+```
+
+### 5. **API Client Service**
 
 ```javascript
 // API service for project history
 class ProjectHistoryAPI {
-  constructor(baseURL, authToken) {
+  constructor(baseURL) {
     this.baseURL = baseURL;
-    this.authToken = authToken;
   }
 
   async getProjects(filters = {}) {
     const params = new URLSearchParams(filters);
     const response = await fetch(`${this.baseURL}/api/history?${params}`, {
-      headers: {
-        'Authorization': `Bearer ${this.authToken}`,
-        'Content-Type': 'application/json'
-      }
+      headers: authService.getAuthHeaders()
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch projects: ${response.statusText}`);
+      authService.handleAuthError(response);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed to fetch projects: ${response.statusText}`);
     }
     
     return response.json();
@@ -540,13 +584,13 @@ class ProjectHistoryAPI {
 
   async getProject(id) {
     const response = await fetch(`${this.baseURL}/api/history/${id}`, {
-      headers: {
-        'Authorization': `Bearer ${this.authToken}`
-      }
+      headers: authService.getAuthHeaders()
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch project: ${response.statusText}`);
+      authService.handleAuthError(response);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed to fetch project: ${response.statusText}`);
     }
     
     return response.json();
@@ -554,14 +598,13 @@ class ProjectHistoryAPI {
 
   async downloadProject(id) {
     const response = await fetch(`${this.baseURL}/api/history/${id}/download`, {
-      headers: {
-        'Authorization': `Bearer ${this.authToken}`
-      }
+      headers: authService.getAuthHeaders()
     });
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Download failed');
+      authService.handleAuthError(response);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Download failed');
     }
     
     // Handle file download
@@ -580,13 +623,13 @@ class ProjectHistoryAPI {
   async regenerateProject(id) {
     const response = await fetch(`${this.baseURL}/api/history/${id}/regenerate`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.authToken}`
-      }
+      headers: authService.getAuthHeaders()
     });
     
     if (!response.ok) {
-      throw new Error('Regeneration failed');
+      authService.handleAuthError(response);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Regeneration failed');
     }
     
     // Handle file download (same as downloadProject)
@@ -605,10 +648,7 @@ class ProjectHistoryAPI {
   async duplicateProject(originalId, newName) {
     const response = await fetch(`${this.baseURL}/api/history/duplicate`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.authToken}`,
-        'Content-Type': 'application/json'
-      },
+      headers: authService.getAuthHeaders(),
       body: JSON.stringify({
         original_project_id: originalId,
         new_project_name: newName
@@ -616,7 +656,9 @@ class ProjectHistoryAPI {
     });
     
     if (!response.ok) {
-      throw new Error('Duplication failed');
+      authService.handleAuthError(response);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Duplication failed');
     }
     
     return response.json();
@@ -625,13 +667,13 @@ class ProjectHistoryAPI {
   async deleteProject(id) {
     const response = await fetch(`${this.baseURL}/api/history/${id}`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${this.authToken}`
-      }
+      headers: authService.getAuthHeaders()
     });
     
     if (!response.ok) {
-      throw new Error('Deletion failed');
+      authService.handleAuthError(response);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Deletion failed');
     }
     
     return response.json();
@@ -639,13 +681,13 @@ class ProjectHistoryAPI {
 
   async getStats() {
     const response = await fetch(`${this.baseURL}/api/history/stats`, {
-      headers: {
-        'Authorization': `Bearer ${this.authToken}`
-      }
+      headers: authService.getAuthHeaders()
     });
     
     if (!response.ok) {
-      throw new Error('Failed to fetch statistics');
+      authService.handleAuthError(response);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch statistics');
     }
     
     return response.json();
@@ -653,13 +695,13 @@ class ProjectHistoryAPI {
 
   async getDashboardData() {
     const response = await fetch(`${this.baseURL}/api/history/dashboard`, {
-      headers: {
-        'Authorization': `Bearer ${this.authToken}`
-      }
+      headers: authService.getAuthHeaders()
     });
     
     if (!response.ok) {
-      throw new Error('Failed to fetch dashboard data');
+      authService.handleAuthError(response);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch dashboard data');
     }
     
     return response.json();
@@ -754,12 +796,51 @@ const StatsDashboard = () => {
 - Handle 401 responses by redirecting to login
 - Implement token refresh mechanism
 
-### 2. **Data Validation**
+**⚠️ CRITICAL: Always include Authorization header**
+```javascript
+// ❌ WRONG - Missing Authorization header
+fetch('/api/history/123', {
+  method: 'DELETE'
+});
+
+// ✅ CORRECT - Include Authorization header
+fetch('/api/history/123', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+```
+
+### 2. **Common Authentication Errors**
+
+**Error: `MISSING_AUTH_HEADER`**
+```json
+{
+  "code": "MISSING_AUTH_HEADER",
+  "details": "Authorization header is missing",
+  "error": "Authentication required",
+  "timestamp": "2025-09-15T16:19:42+04:00"
+}
+```
+**Solution:** Always include `Authorization: Bearer <token>` header in all API requests.
+
+**Error: `AUTH_FAILED`**
+```json
+{
+  "code": "AUTH_FAILED",
+  "details": "Invalid or expired token",
+  "error": "User authentication failed"
+}
+```
+**Solution:** Token is invalid or expired. Redirect user to login page.
+
+### 3. **Data Validation**
 - Validate all user inputs before sending to API
 - Sanitize project names and search queries
 - Implement client-side validation for better UX
 
-### 3. **File Downloads**
+### 4. **File Downloads**
 - Handle download errors gracefully
 - Show progress indicators for large files
 - Implement download retry mechanism
@@ -797,5 +878,103 @@ const StatsDashboard = () => {
 - Stack project cards vertically on mobile
 - Collapsible filters and search
 - Bottom sheet for project actions
+
+## 🐛 Troubleshooting Common Issues
+
+### 1. **Delete Button Returns "MISSING_AUTH_HEADER"**
+
+**Problem:** When clicking delete project button, you get:
+```json
+{
+  "code": "MISSING_AUTH_HEADER",
+  "details": "Authorization header is missing",
+  "error": "Authentication required"
+}
+```
+
+**Solution:** Ensure your delete function includes the Authorization header:
+
+```javascript
+// ❌ WRONG - Missing Authorization header
+const deleteProject = async (projectId) => {
+  const response = await fetch(`/api/history/${projectId}`, {
+    method: 'DELETE'
+  });
+};
+
+// ✅ CORRECT - Include Authorization header
+const deleteProject = async (projectId) => {
+  const token = localStorage.getItem('jwt_token');
+  const response = await fetch(`/api/history/${projectId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Delete failed');
+  }
+  
+  return response.json();
+};
+```
+
+### 2. **Token Expired or Invalid**
+
+**Problem:** Getting 401 errors even with Authorization header.
+
+**Solution:** Check token validity and implement refresh logic:
+
+```javascript
+const handleApiCall = async (apiCall) => {
+  try {
+    return await apiCall();
+  } catch (error) {
+    if (error.message.includes('401') || error.message.includes('AUTH_FAILED')) {
+      // Token expired, redirect to login
+      localStorage.removeItem('jwt_token');
+      window.location.href = '/login';
+    }
+    throw error;
+  }
+};
+```
+
+### 3. **CORS Issues**
+
+**Problem:** Browser blocks requests due to CORS policy.
+
+**Solution:** Ensure backend CORS is configured (already done in the backend):
+```go
+app.Use(cors.New(cors.Config{
+    AllowOrigins:  "*",
+    AllowMethods:  "GET,POST,DELETE,OPTIONS",
+    AllowHeaders:  "Content-Type,Authorization",
+}))
+```
+
+### 4. **Network Request Debugging**
+
+**Debug Steps:**
+1. Open browser DevTools → Network tab
+2. Click delete button
+3. Check the request headers:
+   - Should include `Authorization: Bearer <token>`
+   - Should be DELETE method to `/api/history/{id}`
+4. Check response:
+   - 200: Success
+   - 401: Missing/invalid auth
+   - 404: Project not found
+   - 500: Server error
+
+**Example Working Request:**
+```
+DELETE /api/history/123
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+```
 
 This comprehensive guide provides everything needed to implement the project history feature on the frontend. The backend is fully implemented and ready to support all these use cases! 🚀

@@ -32,8 +32,15 @@ func HistoryTrackingMiddleware(historyService *services.ProjectHistoryService) f
 			return c.Next() // Let auth middleware handle this
 		}
 
-		userIDUint, ok := userID.(uint)
-		if !ok {
+		var userIDUint uint
+		switch v := userID.(type) {
+		case uint:
+			userIDUint = v
+		case int:
+			userIDUint = uint(v)
+		case float64:
+			userIDUint = uint(v)
+		default:
 			return c.Next() // Invalid user ID format
 		}
 
@@ -49,70 +56,30 @@ func HistoryTrackingMiddleware(historyService *services.ProjectHistoryService) f
 			return c.Next() // Continue without tracking on parse error
 		}
 
+		// Restore the body for the handler to use
+		c.Request().SetBody(bodyBytes)
+
 		// Record start time for duration measurement
 		startTime := time.Now()
-
-		// Store request data in context for post-processing
-		c.Locals("history_tracking", map[string]interface{}{
-			"user_id":      userIDUint,
-			"request":      genRequest,
-			"start_time":   startTime,
-			"should_track": true,
-		})
 
 		// Continue to the actual handler
 		handlerErr := c.Next()
 
-		// Post-process: Record history if generation was successful
-		go func() {
-			if err := recordHistoryAsync(c, historyService, handlerErr); err != nil {
-				fmt.Printf("Warning: Failed to record project history: %v\n", err)
-			}
-		}()
+		// Record history immediately after handler execution (not async)
+		if handlerErr == nil && c.Response().StatusCode() == 200 {
+			go func() {
+				if err := recordHistory(userIDUint, genRequest, startTime, historyService); err != nil {
+					fmt.Printf("Warning: Failed to record project history: %v\n", err)
+				}
+			}()
+		}
 
 		return handlerErr
 	}
 }
 
-// recordHistoryAsync handles the asynchronous recording of project history
-func recordHistoryAsync(c *fiber.Ctx, historyService *services.ProjectHistoryService, handlerErr error) error {
-	// Get tracking data from context
-	trackingData := c.Locals("history_tracking")
-	if trackingData == nil {
-		return nil // No tracking data available
-	}
-
-	trackingMap, ok := trackingData.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("invalid tracking data format")
-	}
-
-	shouldTrack, exists := trackingMap["should_track"].(bool)
-	if !exists || !shouldTrack {
-		return nil // Tracking disabled
-	}
-
-	// Only record history if the generation was successful (no error and status 200)
-	if handlerErr != nil || c.Response().StatusCode() != 200 {
-		return nil // Don't record failed generations
-	}
-
-	// Extract tracking data
-	userID, ok := trackingMap["user_id"].(uint)
-	if !ok {
-		return fmt.Errorf("invalid user ID in tracking data")
-	}
-
-	genRequest, ok := trackingMap["request"].(models.GenerateRequest)
-	if !ok {
-		return fmt.Errorf("invalid request data in tracking data")
-	}
-
-	startTime, ok := trackingMap["start_time"].(time.Time)
-	if !ok {
-		return fmt.Errorf("invalid start time in tracking data")
-	}
-
+// recordHistory handles the recording of project history
+func recordHistory(userID uint, genRequest models.GenerateRequest, startTime time.Time, historyService *services.ProjectHistoryService) error {
 	// Calculate generation duration
 	duration := time.Since(startTime)
 	durationMs := int(duration.Milliseconds())
