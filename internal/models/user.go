@@ -13,4 +13,7 @@ type User struct {
 	IsVerified   bool      `gorm:"default:false" json:"is_verified"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+
+	// Associations
+	ProjectHistory []ProjectHistory `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"project_history,omitempty"`
 }

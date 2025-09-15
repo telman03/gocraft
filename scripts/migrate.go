@@ -21,5 +21,9 @@ func main() {
 	// Auto migrate models
 	fmt.Println("Migrating User model...")
 	database.DB.AutoMigrate(&models.User{})
+	
+	fmt.Println("Migrating ProjectHistory model...")
+	database.DB.AutoMigrate(&models.ProjectHistory{})
+	
 	fmt.Println("Migration complete!")
 }
