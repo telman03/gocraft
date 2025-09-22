@@ -25,9 +25,9 @@ import (
 // @name Authorization
 // @description Enter your JWT token in the format: Bearer <token>
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
+    if err := godotenv.Load(); err != nil {
+        log.Println("No .env file found, using system environment variables")
+    }
 
 	database.InitDB()
 
