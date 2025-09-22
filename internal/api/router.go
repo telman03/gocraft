@@ -60,9 +60,15 @@ func SetupRoutes(app *fiber.App, historyService *services.ProjectHistoryService,
 	api.Get("/history/:id/download", sanitizer.ValidateProjectID(), middleware.ProjectOwnershipValidator(), handlers.DownloadProject)
 	api.Post("/history/:id/regenerate", sanitizer.ValidateProjectID(), middleware.ProjectOwnershipValidator(), handlers.RegenerateProject)
 
+	// Admin endpoints (admin access required)
+	admin := api.Group("/admin", middleware.RequireAuth, middleware.RequireAdmin)
+	admin.Get("/users", handlers.GetAllUsers)
+	admin.Put("/users/:id/role", handlers.UpdateUserRole)
+	admin.Get("/stats", handlers.GetUserStats)
+
 	// Maintenance endpoints (admin access required)
 	maintenanceHandler := handlers.NewMaintenanceHandler(dbMaintenanceService, fileCleanupService)
-	maintenance := api.Group("/maintenance", middleware.RequireAuth) // TODO: Add admin role check
+	maintenance := api.Group("/maintenance", middleware.RequireAuth, middleware.RequireAdmin)
 	maintenance.Get("/health", maintenanceHandler.GetDatabaseHealth)
 	maintenance.Get("/performance", maintenanceHandler.GetPerformanceMetrics)
 	maintenance.Get("/status", maintenanceHandler.GetMaintenanceStatus)

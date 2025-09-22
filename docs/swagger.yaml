@@ -40,6 +40,16 @@ definitions:
       file_cleanup:
         $ref: '#/definitions/handlers.FileCleanupConfigRequest'
     type: object
+  handlers.UpdateUserRoleRequest:
+    properties:
+      role:
+        enum:
+        - user
+        - admin
+        type: string
+    required:
+    - role
+    type: object
   models.DailyActivityCount:
     properties:
       count:
@@ -329,6 +339,147 @@ info:
   title: GoCraft API
   version: "1.0"
 paths:
+  /api/admin/stats:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves comprehensive statistics about users and system usage
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user statistics (Admin only)
+      tags:
+      - Admin
+  /api/admin/users:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a list of all users with their roles and basic information
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 20, max: 100)'
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get all users (Admin only)
+      tags:
+      - Admin
+  /api/admin/users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Updates a user's role between 'user' and 'admin'
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Role update request
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateUserRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update user role (Admin only)
+      tags:
+      - Admin
   /api/history:
     get:
       consumes:
