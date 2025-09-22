@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -94,5 +95,12 @@ func main() {
 
 	api.SetupRoutes(app, historyService, dbMaintenanceService, fileCleanupService)
 
-	log.Fatal(app.Listen(":8081"))
+	// Get port from environment variable or default to 8080
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	
+	log.Printf("Starting server on port %s", port)
+	log.Fatal(app.Listen(":" + port))
 }

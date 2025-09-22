@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/telman03/ai-backend-generator/internal/database"
 	"github.com/telman03/ai-backend-generator/internal/handlers"
 	"github.com/telman03/ai-backend-generator/internal/middleware"
 	"github.com/telman03/ai-backend-generator/internal/services"
@@ -21,6 +22,40 @@ func SetupRoutes(app *fiber.App, historyService *services.ProjectHistoryService,
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Welcome to GoCraft API 🚀"})
+	})
+
+	// Health check endpoints for deployment systems
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"status": "healthy",
+			"service": "gocraft-api",
+			"timestamp": time.Now().Format(time.RFC3339),
+		})
+	})
+
+	app.Get("/ready", func(c *fiber.Ctx) error {
+		// Check database connection
+		sqlDB, err := database.DB.DB()
+		if err != nil {
+			return c.Status(503).JSON(fiber.Map{
+				"status": "not ready",
+				"error": "database connection failed",
+			})
+		}
+
+		if err := sqlDB.Ping(); err != nil {
+			return c.Status(503).JSON(fiber.Map{
+				"status": "not ready", 
+				"error": "database ping failed",
+			})
+		}
+
+		return c.JSON(fiber.Map{
+			"status": "ready",
+			"service": "gocraft-api",
+			"database": "connected",
+			"timestamp": time.Now().Format(time.RFC3339),
+		})
 	})
 	// Auth routes
 	auth := app.Group("/auth")
