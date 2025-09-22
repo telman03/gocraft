@@ -41,7 +41,7 @@ func VerifyGeneration(c *fiber.Ctx) error {
 		// Check if framework is already in features
 		frameworkExists := false
 		for _, feature := range req.Features {
-			if strings.ToLower(feature) == strings.ToLower(req.Framework) {
+			if strings.EqualFold(feature, req.Framework) {
 				frameworkExists = true
 				break
 			}

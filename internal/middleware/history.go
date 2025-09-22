@@ -103,7 +103,7 @@ func recordHistory(userID uint, genRequest models.GenerateRequest, startTime tim
 		// Check if framework is already in features
 		frameworkExists := false
 		for _, feature := range genRequest.Features {
-			if strings.ToLower(feature) == strings.ToLower(framework) {
+			if strings.EqualFold(feature, framework) {
 				frameworkExists = true
 				break
 			}
