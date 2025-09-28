@@ -1,19 +1,120 @@
+# 🔒 Environment & Secrets
 .env
-/output
-qodana.yaml
+.env.local
+.env.production
+.env.staging
+.env.development
+.env.test
+*.env
+!.env.example
 
-# Binaries
-ai-backend-generator
+# 🔐 Security & Credentials
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials/
+auth.json
+service-account.json
+
+# 📁 Generated Projects & Output
+/output/
+/bin/
+/dist/
+
+# 🏗️ Build Artifacts
 *.exe
 *.dll
 *.so
 *.dylib
+gocraft
+ai-backend-generator
 
-# Test binaries
+# 🧪 Testing
 *.test
-
-# Output of the go coverage tool
 *.out
+coverage.html
+coverage.out
 
-# Dependency directories
+# 📦 Dependencies
 vendor/
+node_modules/
+
+# 🗄️ Database
+*.db
+*.sqlite
+*.sqlite3
+
+# 📝 Logs
+*.log
+logs/
+
+# 🐳 Docker
+.dockerignore
+
+# 💻 IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+*.code-workspace
+.history/
+.ionide/
+
+# 🎯 Development Tools & Artifacts
+.kiro/
+.air.toml
+qodana.yaml
+debug_download.html
+*.debug
+*.prof
+*.trace
+.coverage/
+.nyc_output/
+
+# 🍎 macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 🐧 Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# 🪟 Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# 🗂️ Backup & Archive Files
+*.backup
+*.bak
+*.orig
+*.rej
+.backup/
+backups/
+*.tar.gz
+*.zip
+*.7z
+
+# 📊 Temporary Files
+tmp/
+temp/
+.tmp/
+
+# 📊 Analytics & Monitoring
+*.analytics
+monitoring/
+metrics/
+*.pid
+
+# 📚 Documentation Build
+docs/build/
+site/

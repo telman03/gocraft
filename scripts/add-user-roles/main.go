@@ -37,10 +37,10 @@ func main() {
 	adminPassword := os.Getenv("ADMIN_PASSWORD")
 
 	if adminEmail == "" {
-		adminEmail = "admin@gocraft.dev"
+		log.Fatal("ADMIN_EMAIL environment variable is required")
 	}
 	if adminPassword == "" {
-		adminPassword = "AdminPassword123!"
+		log.Fatal("ADMIN_PASSWORD environment variable is required")
 	}
 
 	// Check if admin user already exists

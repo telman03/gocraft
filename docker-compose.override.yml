@@ -1,0 +1,37 @@
+# Docker Compose override for development
+# This file is automatically loaded by docker-compose and provides
+# development-specific configurations
+
+version: "3.9"
+
+services:
+  # Development overrides for the database
+  db:
+    environment:
+      # Enable more verbose logging in development
+      POSTGRES_LOG_STATEMENT: all
+      POSTGRES_LOG_MIN_DURATION_STATEMENT: 0
+    volumes:
+      # Add volume for database initialization scripts
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+
+  # Development service configuration
+  dev:
+    environment:
+      # Development-specific environment variables
+      - GO_ENV=development
+      - LOG_LEVEL=debug
+      - HOT_RELOAD=true
+    volumes:
+      # Mount source code for hot reload
+      - .:/app:cached
+      # Exclude node_modules and other directories that shouldn't be synced
+      - /app/node_modules
+      - /app/tmp
+      - /app/bin
+      - /app/.git
+    # Override command for development
+    command: ["air", "-c", ".air.toml"]
+    # Enable stdin and tty for interactive debugging
+    stdin_open: true
+    tty: true

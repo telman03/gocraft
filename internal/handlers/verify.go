@@ -95,7 +95,7 @@ func VerifyGeneration(c *fiber.Ctx) error {
 			"has_env_example": containsFile(files, ".env.example"),
 			"has_gitignore":   containsFile(files, ".gitignore"),
 			"has_go_mod":      containsFile(files, "go.mod"),
-			"has_main_go":     containsFile(files, "main.go"),
+			"has_main_go":     hasMainGoInCmd(files),
 		},
 	}
 
@@ -106,6 +106,18 @@ func containsFile(files []map[string]interface{}, filename string) bool {
 	for _, file := range files {
 		if file["name"] == filename {
 			return true
+		}
+	}
+	return false
+}
+
+func hasMainGoInCmd(files []map[string]interface{}) bool {
+	for _, file := range files {
+		if path, ok := file["path"].(string); ok {
+			// Check if the path contains cmd/*/main.go pattern
+			if strings.Contains(path, "cmd/") && strings.HasSuffix(path, "/main.go") {
+				return true
+			}
 		}
 	}
 	return false

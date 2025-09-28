@@ -1,261 +1,462 @@
-# GoCraft Backend Generator
+# 🚀 GoCraft - Go Backend Generator
 
-A powerful Go backend project generator that creates production-ready scaffolds with configurable features and automatic environment setup.
+[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://golang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![API Documentation](https://img.shields.io/badge/API-Swagger-85EA2D?style=flat&logo=swagger)](http://localhost:8080/swagger/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](https://www.docker.com/)
 
-## Features
+**GoCraft** is a powerful, production-ready Go backend generator that helps developers quickly scaffold modern microservices with their preferred frameworks, databases, and features. Generate complete, well-structured Go applications in seconds with built-in best practices, security features, and comprehensive documentation.
 
-### 🚀 Core Features
-- **Automatic Project Scaffolding**: Generate complete Go backend projects with selected features
-- **Environment Configuration**: Auto-generated `.env.example` files with feature-specific variables
-- **Security Best Practices**: Secure OTP generation, JWT authentication, input validation
-- **Database Support**: PostgreSQL, MySQL, SQLite, MongoDB, Redis, BadgerDB
-- **Web Frameworks**: Fiber, Gin, Echo support
-- **Authentication**: JWT, OAuth2 integration
-- **AI Integration**: OpenAI, OpenRouter, Claude API support
-- **Real-time Communication**: WebSocket and gRPC support
-- **Observability**: Prometheus metrics, logging, monitoring
-- **Development Tools**: Docker, Docker Compose, Makefile, GitHub Actions
+---
 
-### 🔧 Environment Configuration
+## ✨ Why Choose GoCraft?
 
-Every generated project includes a comprehensive `.env.example` file with:
+- 🚀 **Lightning Fast**: Generate production-ready Go backends in seconds
+- 🏗️ **Modular Architecture**: Choose exactly the features you need
+- 🔒 **Security First**: Built-in authentication, validation, and security best practices
+- 📚 **Well Documented**: Comprehensive documentation and examples for every feature
+- 🎯 **Production Ready**: Generated code follows Go best practices and industry standards
+- 🔧 **Highly Configurable**: Extensive customization options for every component
 
-#### Core Configuration
-```env
-# Server Configuration
-APP_NAME=your-project-name
-APP_ENV=development
-PORT=8080
-HOST=0.0.0.0
-```
+---
 
-#### Feature-Specific Variables
-The generator automatically includes environment variables based on selected features:
-
-- **Database Features** (`postgresql`, `mysql`, `sqlite`, `mongodb`, `redis`):
-  ```env
-  # PostgreSQL Configuration
-  DATABASE_URL=postgres://postgres:password@localhost:5432/your-project?sslmode=disable
-  DB_HOST=localhost
-  DB_PORT=5432
-  DB_NAME=your-project
-  DB_USER=postgres
-  DB_PASSWORD=password
-  ```
-
-- **Authentication** (`auth`, `jwt`):
-  ```env
-  # Authentication & Security
-  JWT_SECRET=your-super-secret-jwt-key-change-in-production-min-32-chars
-  JWT_EXPIRATION=24h
-  BCRYPT_COST=12
-  ```
-
-- **AI Integration** (`openai`, `claude`, `openrouter`):
-  ```env
-  # AI/LLM Configuration
-  OPENAI_API_KEY=your-openai-api-key
-  OPENAI_MODEL=gpt-3.5-turbo
-  ```
-
-- **Real-time Features** (`websocket`, `grpc`):
-  ```env
-  # WebSocket Configuration
-  WS_READ_BUFFER_SIZE=1024
-  WS_WRITE_BUFFER_SIZE=1024
-  
-  # gRPC Configuration
-  GRPC_PORT=9090
-  GRPC_HOST=0.0.0.0
-  ```
-
-- **Observability** (`observability`, `prometheus`):
-  ```env
-  # Monitoring & Observability
-  PROMETHEUS_ENABLED=true
-  SENTRY_DSN=your-sentry-dsn
-  ```
-
-## API Endpoints
-
-### Authentication
-- `POST /auth/register` - User registration with OTP verification
-- `POST /auth/verify-otp` - Verify OTP code
-- `POST /auth/resend-otp` - Resend OTP code
-- `POST /auth/login` - User login
-- `GET /auth/me` - Get current user (requires authentication)
-
-### Feature Validation
-- `GET /features` - Get all supported features and conflict rules
-- `POST /generate/validate` - Validate feature combinations (requires authentication)
-
-### Project Generation
-- `POST /generate` - Generate and download project scaffold (requires authentication)
-- `POST /generate/verify` - Verify project generation and list contents (requires authentication)
-
-## Quick Start
+## 🎯 Quick Start
 
 ### Prerequisites
-- Go 1.21+
-- PostgreSQL (for user management)
-- Environment variables configured
 
-### Installation
+- **Go 1.23+** - [Install Go](https://golang.org/doc/install)
+- **PostgreSQL** - For user management and project history
+- **Git** - For version control
 
-1. Clone the repository:
-```bash
-git clone https://github.com/telman03/ai-backend-generator.git
-cd ai-backend-generator
+### 🚀 Get Started in 3 Steps
+
+1. **Clone and Setup**
+   ```bash
+   git clone https://github.com/telman03/ai-backend-generator.git
+   cd ai-backend-generator
+   go mod tidy
+   ```
+
+2. **Configure Environment**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your database credentials
+   ```
+
+3. **Start the Server**
+   ```bash
+   go run cmd/gocraft/main.go
+   ```
+
+Your GoCraft server is now running at `http://localhost:8080` 🎉
+
+---
+
+## 🏗️ Architecture Overview
+
+GoCraft follows a clean, modular architecture designed for scalability and maintainability:
+
+```
+gocraft/
+├── cmd/gocraft/           # Application entry point
+├── internal/              # Private application code
+│   ├── api/              # HTTP routing and middleware
+│   ├── auth/             # Authentication system
+│   ├── builder/          # Project generation engine
+│   ├── handlers/         # HTTP request handlers
+│   ├── middleware/       # HTTP middleware stack
+│   ├── models/           # Data models
+│   ├── services/         # Business logic services
+│   ├── templates/        # Code generation templates
+│   └── validation/       # Input validation
+├── docs/                 # Documentation
+├── examples/             # Usage examples
+└── tests/               # Test suites
 ```
 
-2. Install dependencies:
+---
+
+## 🛠️ Supported Technologies
+
+### 🌐 Web Frameworks
+- **Gin** - Fast and minimalist web framework
+- **Echo** - High performance, extensible framework  
+- **Fiber** - Express-inspired framework built on Fasthttp
+
+### 🗄️ Databases
+- **PostgreSQL** - Advanced relational database
+- **MySQL** - Popular relational database
+- **SQLite** - Lightweight embedded database
+- **MongoDB** - NoSQL document database
+- **Redis** - In-memory cache and data store
+
+### 🔐 Authentication & Security
+- **JWT Authentication** - Secure token-based auth
+- **OAuth2** - Social login integration
+- **OTP Verification** - Email-based verification
+- **Rate Limiting** - Built-in request throttling
+- **Input Validation** - Comprehensive request validation
+
+### 🤖 AI Integration
+- **OpenAI** - GPT models integration
+- **Claude** - Anthropic's AI assistant
+- **OpenRouter** - Multi-model AI access
+
+### 📡 Communication
+- **gRPC** - High-performance RPC framework
+- **WebSocket** - Real-time bidirectional communication
+- **REST API** - Standard HTTP API structure
+
+### 🐳 DevOps & Deployment
+- **Docker** - Container configuration
+- **Docker Compose** - Multi-service orchestration
+- **Makefile** - Build automation
+- **Swagger** - Interactive API documentation
+
+---
+
+## 📖 Usage Examples
+
+### 🔐 User Registration & Authentication
+
 ```bash
-go mod tidy
-```
-
-3. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-4. Run database migrations:
-```bash
-go run main.go
-```
-
-5. Start the server:
-```bash
-go run main.go
-```
-
-The server will start on `http://localhost:8081`
-
-### Usage
-
-1. **Register a new account**:
-```bash
-curl -X POST http://localhost:8081/auth/register \
+# Register a new user
+curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123"}'
-```
+  -d '{"email":"developer@example.com","password":"SecurePass123!"}'
 
-2. **Verify your email** with the OTP received:
-```bash
-curl -X POST http://localhost:8081/auth/verify-otp \
+# Verify email with OTP
+curl -X POST http://localhost:8080/auth/verify-otp \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","otp":"123456"}'
+  -d '{"email":"developer@example.com","otp":"123456"}'
+
+# Login and get JWT token
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"developer@example.com","password":"SecurePass123!"}'
 ```
 
-3. **Validate features** (optional but recommended):
+### 🏗️ Project Generation
+
 ```bash
-curl -X POST http://localhost:8081/generate/validate \
+# Validate feature combination
+curl -X POST http://localhost:8080/generate/validate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
     "projectName": "my-awesome-api",
-    "features": ["postgresql", "auth", "redis", "openai", "websocket"]
+    "features": ["gin", "postgresql", "auth", "redis", "swagger", "docker"]
   }'
-```
 
-4. **Generate a project**:
-```bash
-curl -X POST http://localhost:8081/generate \
+# Generate and download project
+curl -X POST http://localhost:8080/generate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
     "projectName": "my-awesome-api",
-    "features": ["postgresql", "auth", "redis", "openai", "websocket"]
+    "features": ["gin", "postgresql", "auth", "redis", "swagger", "docker"]
   }' \
   --output my-awesome-api.zip
 ```
 
-## Available Features
+### 📊 Project Management
 
-| Feature | Description | Environment Variables Added |
-|---------|-------------|----------------------------|
-| `postgresql` | PostgreSQL database support | `DATABASE_URL`, `DB_HOST`, `DB_PORT`, etc. |
-| `mysql` | MySQL database support | `MYSQL_HOST`, `MYSQL_PORT`, etc. |
-| `sqlite` | SQLite database support | `SQLITE_DATABASE`, `SQLITE_CACHE` |
-| `mongodb` | MongoDB support | `MONGODB_URL`, `MONGODB_HOST`, etc. |
-| `redis` | Redis cache/session store | `REDIS_URL`, `REDIS_HOST`, etc. |
-| `auth` | JWT authentication | `JWT_SECRET`, `JWT_EXPIRATION`, etc. |
-| `oauth2` | OAuth2 integration | OAuth provider configurations |
-| `openai` | OpenAI API integration | `OPENAI_API_KEY`, `OPENAI_MODEL` |
-| `claude` | Claude API integration | `CLAUDE_API_KEY`, `CLAUDE_MODEL` |
-| `openrouter` | OpenRouter API integration | `OPENROUTER_API_KEY` |
-| `websocket` | WebSocket support | `WS_READ_BUFFER_SIZE`, etc. |
-| `grpc` | gRPC server support | `GRPC_PORT`, `GRPC_HOST`, etc. |
-| `gin` | Gin web framework | Framework-specific configs |
-| `echo` | Echo web framework | Framework-specific configs |
-| `observability` | Monitoring & metrics | `PROMETHEUS_ENABLED`, `SENTRY_DSN` |
-| `docker` | Docker configuration | Dockerfile and docker-compose.yml |
-| `swagger` | API documentation | Swagger/OpenAPI setup |
+```bash
+# View project history
+curl -X GET http://localhost:8080/api/history \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
-## Project Structure
+# Get project statistics
+curl -X GET http://localhost:8080/api/history/stats \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
-Generated projects follow this structure:
+# Download previous project
+curl -X GET http://localhost:8080/api/history/123/download \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  --output project-backup.zip
+```
+
+---
+
+## 🎨 Generated Project Structure
+
+Every generated project follows Go best practices and includes:
 
 ```
-your-project/
+your-awesome-api/
 ├── .env.example          # Environment configuration template
-├── .gitignore           # Git ignore rules
-├── main.go              # Application entry point
-├── go.mod               # Go module definition
-├── Dockerfile           # Docker configuration (if selected)
-├── docker-compose.yml   # Docker Compose (if selected)
-├── Makefile            # Build automation (if selected)
-├── README.md           # Project documentation
-├── internal/
-│   ├── auth/           # Authentication logic
-│   ├── config/         # Configuration management
-│   ├── db/             # Database connections
-│   ├── handlers/       # HTTP handlers
-│   ├── middleware/     # HTTP middleware
-│   ├── models/         # Data models
-│   └── router/         # Route definitions
-└── docs/               # API documentation
+├── .gitignore           # Git ignore patterns
+├── .dockerignore        # Docker ignore patterns (if Docker selected)
+├── Dockerfile           # Multi-stage Docker build (if Docker selected)
+├── docker-compose.yml   # Development environment (if Docker selected)
+├── Makefile            # Build automation (if Makefile selected)
+├── README.md           # Comprehensive project documentation
+├── go.mod              # Go module definition
+├── cmd/                # Application entry points
+│   └── gocraft/        # Main application
+│       └── main.go     # Application entry point
+├── internal/           # Private application code
+│   ├── auth/          # Authentication logic (if auth selected)
+│   ├── config/        # Configuration management
+│   ├── database/      # Database connections
+│   ├── handlers/      # HTTP request handlers
+│   ├── middleware/    # HTTP middleware stack
+│   ├── models/        # Data models and schemas
+│   ├── routes/        # Route definitions
+│   └── services/      # Business logic services
+├── docs/              # API documentation (if Swagger selected)
+├── migrations/        # Database migrations (if database selected)
+└── tests/            # Test files and fixtures
 ```
 
-## Security Features
+---
 
-- **Cryptographically Secure OTP**: Uses `crypto/rand` for secure random generation
-- **Input Validation**: Comprehensive validation with detailed error messages
-- **JWT Authentication**: Secure token-based authentication
-- **Password Hashing**: bcrypt with configurable cost
-- **Rate Limiting**: Built-in rate limiting support
-- **CORS Configuration**: Configurable CORS policies
+## 🔧 Configuration
 
-## Development
+### Environment Variables
+
+GoCraft automatically generates comprehensive `.env.example` files based on selected features:
+
+```env
+# Core Application
+APP_NAME=my-awesome-api
+APP_ENV=development
+PORT=8080
+HOST=0.0.0.0
+
+# Database (PostgreSQL example)
+DATABASE_URL=postgres://user:password@localhost:5432/myapp?sslmode=disable
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=myapp
+DB_USER=postgres
+DB_PASSWORD=password
+
+# Authentication & Security
+JWT_SECRET=your-super-secret-jwt-key-change-in-production-min-32-chars
+JWT_EXPIRATION=24h
+BCRYPT_COST=12
+
+# Redis Cache
+REDIS_URL=redis://localhost:6379
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+
+# AI Integration (if selected)
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-3.5-turbo
+OPENAI_MAX_TOKENS=1000
+```
+
+### Feature Compatibility
+
+GoCraft includes intelligent conflict detection:
+
+✅ **Compatible Combinations:**
+- `gin` + `postgresql` + `auth` + `redis` + `swagger`
+- `fiber` + `mongodb` + `websocket` + `docker`
+- `echo` + `mysql` + `grpc` + `openai`
+
+❌ **Conflicting Features:**
+- Multiple frameworks: `gin` + `echo` + `fiber`
+- Multiple primary databases: `postgresql` + `mysql` + `mongodb`
+
+---
+
+## 🔒 Security Features
+
+GoCraft prioritizes security with built-in features:
+
+- 🔐 **JWT Authentication** - Secure token-based authentication
+- 🛡️ **Input Validation** - Comprehensive request validation and sanitization
+- 🔒 **Password Security** - bcrypt hashing with configurable cost
+- 📧 **OTP Verification** - Cryptographically secure email verification
+- 🚦 **Rate Limiting** - Configurable request throttling (100 req/min default)
+- 🌐 **CORS Protection** - Configurable cross-origin resource sharing
+- 🔍 **SQL Injection Prevention** - Parameterized queries and ORM protection
+- 📝 **Audit Logging** - Comprehensive security event logging
+
+---
+
+## 🧪 Development & Testing
 
 ### Running Tests
+
 ```bash
+# Run all tests
 go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run specific test package
+go test ./internal/handlers/...
 ```
 
-### Building
+### Building for Production
+
 ```bash
-go build -o bin/gocraft main.go
+# Build binary
+go build -o bin/gocraft cmd/gocraft/main.go
+
+# Build with optimizations
+go build -ldflags="-s -w" -o bin/gocraft cmd/gocraft/main.go
+
+# Cross-compile for Linux
+GOOS=linux GOARCH=amd64 go build -o bin/gocraft-linux cmd/gocraft/main.go
 ```
 
-### Docker
+### Docker Development
+
 ```bash
-docker build -t gocraft .
-docker run -p 8081:8081 gocraft
+# Build Docker image
+docker build -t gocraft:latest .
+
+# Run with Docker Compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f gocraft
 ```
 
-## Contributing
+---
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## 📊 API Documentation
 
-## License
+### Interactive Documentation
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Visit `http://localhost:8080/swagger/` for interactive API documentation with:
 
-## Support
+- 📖 Complete endpoint documentation
+- 🧪 Interactive request testing
+- 📝 Request/response examples
+- 🔐 Authentication testing
+- 📋 Schema definitions
 
-For support, email support@gocraft.dev or create an issue on GitHub.
+### Key Endpoints
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| `GET` | `/health` | Health check | ❌ |
+| `GET` | `/features` | List supported features | ❌ |
+| `POST` | `/auth/register` | User registration | ❌ |
+| `POST` | `/auth/login` | User authentication | ❌ |
+| `POST` | `/generate` | Generate project | ✅ |
+| `GET` | `/api/history` | Project history | ✅ |
+| `GET` | `/api/admin/users` | Admin: List users | 👑 |
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from the community! Here's how to get started:
+
+### 🚀 Quick Contribution Guide
+
+1. **Fork the Repository**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/ai-backend-generator.git
+   cd ai-backend-generator
+   ```
+
+2. **Create a Feature Branch**
+   ```bash
+   git checkout -b feature/amazing-new-feature
+   ```
+
+3. **Make Your Changes**
+   - Follow Go best practices and existing code style
+   - Add tests for new functionality
+   - Update documentation as needed
+
+4. **Test Your Changes**
+   ```bash
+   go test ./...
+   go fmt ./...
+   go vet ./...
+   ```
+
+5. **Submit a Pull Request**
+   - Provide a clear description of your changes
+   - Reference any related issues
+   - Ensure all tests pass
+
+### 🎯 Areas for Contribution
+
+- 🆕 **New Features**: Add support for new frameworks, databases, or integrations
+- 🐛 **Bug Fixes**: Help us squash bugs and improve reliability
+- 📚 **Documentation**: Improve docs, add examples, or create tutorials
+- 🧪 **Testing**: Expand test coverage and add integration tests
+- 🎨 **Templates**: Create new project templates or improve existing ones
+
+### 📋 Development Guidelines
+
+- Follow [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
+- Write clear, descriptive commit messages
+- Add tests for new functionality
+- Update documentation for user-facing changes
+- Use `gofmt` and `go vet` before submitting
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+The MIT License allows you to:
+- ✅ Use the software for any purpose
+- ✅ Modify and distribute the software
+- ✅ Include in proprietary software
+- ✅ Sell copies of the software
+
+---
+
+## 🆘 Support & Community
+
+### 📞 Getting Help
+
+- 📖 **Documentation**: Check our comprehensive [docs](./docs/)
+- 🐛 **Bug Reports**: [Create an issue](https://github.com/telman03/ai-backend-generator/issues/new)
+- 💡 **Feature Requests**: [Request a feature](https://github.com/telman03/ai-backend-generator/issues/new)
+- 💬 **Discussions**: [Join the conversation](https://github.com/telman03/ai-backend-generator/discussions)
+
+### 🌟 Show Your Support
+
+If GoCraft helps you build better Go applications, please consider:
+
+- ⭐ **Star the repository** on GitHub
+- 🐦 **Share on social media** with `#GoCraft`
+- 📝 **Write a blog post** about your experience
+- 🤝 **Contribute** to the project
+
+---
+
+## 🚀 What's Next?
+
+### 🔮 Upcoming Features
+
+- 🌐 **GraphQL Support** - GraphQL server generation
+- 📊 **Prometheus Metrics** - Built-in observability
+- 🔄 **Message Queues** - NATS, RabbitMQ, Kafka integration
+- 🏗️ **Microservices** - Multi-service project generation
+- 🎨 **Custom Templates** - User-defined project templates
+- 📱 **CLI Tool** - Command-line interface for project generation
+
+### 📈 Roadmap
+
+- **Q1 2025**: GraphQL support, Prometheus metrics
+- **Q2 2025**: Message queue integrations, CLI tool
+- **Q3 2025**: Microservices architecture, custom templates
+- **Q4 2025**: Advanced monitoring, performance optimizations
+
+---
+
+<div align="center">
+
+**Built with ❤️ by the GoCraft team**
+
+[Website](https://gocraft.dev) • [Documentation](./docs/) • [API Reference](http://localhost:8080/swagger/) • [GitHub](https://github.com/telman03/ai-backend-generator)
+
+</div>

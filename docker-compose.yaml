@@ -1,18 +1,82 @@
 version: "3.9"
 
 services:
+  # Database service
   db:
     image: postgres:15
     container_name: gocraft-db
     restart: always
     environment:
-      POSTGRES_USER: gocraft
-      POSTGRES_PASSWORD: eden258
-      POSTGRES_DB: gocraft_db
+      POSTGRES_USER: ${DB_USER:-gocraft}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_this_password}
+      POSTGRES_DB: ${DB_NAME:-gocraft_db}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gocraft -d gocraft_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Application service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gocraft-app
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-gocraft}
+      - DB_PASSWORD=${DB_PASSWORD:-change_this_password}
+      - DB_NAME=${DB_NAME:-gocraft_db}
+      - DB_SSLMODE=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./output:/app/output
+      - ./.env.local:/app/.env:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Development service (for hot reload)
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: gocraft-dev
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-gocraft}
+      - DB_PASSWORD=${DB_PASSWORD:-change_this_password}
+      - DB_NAME=${DB_NAME:-gocraft_db}
+      - DB_SSLMODE=disable
+      - GO_ENV=development
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/tmp
+      - ./output:/app/output
+    profiles:
+      - dev
 
 volumes:
   postgres_data:
