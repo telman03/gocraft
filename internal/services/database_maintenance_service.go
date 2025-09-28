@@ -228,11 +228,11 @@ func (s *DatabaseMaintenanceService) cleanupOldRecords(ctx context.Context, stat
 
 	// Delete in batches to avoid long-running transactions
 	for {
+		// Check for context cancellation
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			// Continue with deletion
 		}
 
 		result := s.db.Where("created_at < ? AND zip_file_status IN (?)",
@@ -247,6 +247,7 @@ func (s *DatabaseMaintenanceService) cleanupOldRecords(ctx context.Context, stat
 		deletedCount := int(result.RowsAffected)
 		stats.RecordsDeleted += deletedCount
 
+		// If no records were deleted, we're done
 		if deletedCount == 0 {
 			break
 		}
