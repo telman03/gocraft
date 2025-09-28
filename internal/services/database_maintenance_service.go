@@ -15,14 +15,14 @@ import (
 
 // DatabaseMaintenanceService handles database cleanup, archival, and health monitoring
 type DatabaseMaintenanceService struct {
-	db                    *gorm.DB
-	maintenanceInterval   time.Duration
-	archivalThreshold     time.Duration
-	cleanupBatchSize      int
-	isRunning             bool
-	stopChan              chan struct{}
-	mu                    sync.RWMutex
-	logger                *log.Logger
+	db                  *gorm.DB
+	maintenanceInterval time.Duration
+	archivalThreshold   time.Duration
+	cleanupBatchSize    int
+	isRunning           bool
+	stopChan            chan struct{}
+	mu                  sync.RWMutex
+	logger              *log.Logger
 }
 
 // MaintenanceConfig holds configuration for database maintenance
@@ -36,32 +36,32 @@ type MaintenanceConfig struct {
 
 // MaintenanceStats represents statistics from a maintenance operation
 type MaintenanceStats struct {
-	StartTime           time.Time `json:"start_time"`
-	EndTime             time.Time `json:"end_time"`
-	Duration            string    `json:"duration"` // Duration as string for JSON serialization
-	RecordsProcessed    int       `json:"records_processed"`
-	RecordsArchived     int       `json:"records_archived"`
-	RecordsDeleted      int       `json:"records_deleted"`
-	OrphanedRecords     int       `json:"orphaned_records"`
-	IndexesOptimized    int       `json:"indexes_optimized"`
-	VacuumOperations    int       `json:"vacuum_operations"`
-	Errors              int       `json:"errors"`
+	StartTime        time.Time `json:"start_time"`
+	EndTime          time.Time `json:"end_time"`
+	Duration         string    `json:"duration"` // Duration as string for JSON serialization
+	RecordsProcessed int       `json:"records_processed"`
+	RecordsArchived  int       `json:"records_archived"`
+	RecordsDeleted   int       `json:"records_deleted"`
+	OrphanedRecords  int       `json:"orphaned_records"`
+	IndexesOptimized int       `json:"indexes_optimized"`
+	VacuumOperations int       `json:"vacuum_operations"`
+	Errors           int       `json:"errors"`
 }
 
 // DatabaseHealthReport represents the health status of the database
 type DatabaseHealthReport struct {
-	Timestamp           time.Time `json:"timestamp"`
-	ConnectionStatus    string    `json:"connection_status"`
-	TotalRecords        int64     `json:"total_records"`
-	ActiveRecords       int64     `json:"active_records"`
-	ExpiredRecords      int64     `json:"expired_records"`
-	OrphanedRecords     int64     `json:"orphaned_records"`
-	AverageQueryTime    float64   `json:"average_query_time_ms"`
-	SlowQueries         int       `json:"slow_queries"`
-	IndexEfficiency     float64   `json:"index_efficiency"`
-	TableSize           int64     `json:"table_size_mb"`
-	FragmentationLevel  float64   `json:"fragmentation_level"`
-	RecommendedActions  []string  `json:"recommended_actions"`
+	Timestamp          time.Time `json:"timestamp"`
+	ConnectionStatus   string    `json:"connection_status"`
+	TotalRecords       int64     `json:"total_records"`
+	ActiveRecords      int64     `json:"active_records"`
+	ExpiredRecords     int64     `json:"expired_records"`
+	OrphanedRecords    int64     `json:"orphaned_records"`
+	AverageQueryTime   float64   `json:"average_query_time_ms"`
+	SlowQueries        int       `json:"slow_queries"`
+	IndexEfficiency    float64   `json:"index_efficiency"`
+	TableSize          int64     `json:"table_size_mb"`
+	FragmentationLevel float64   `json:"fragmentation_level"`
+	RecommendedActions []string  `json:"recommended_actions"`
 }
 
 // PerformanceMetrics represents database performance metrics
@@ -140,7 +140,7 @@ func (s *DatabaseMaintenanceService) IsRunning() bool {
 // RunMaintenance performs a manual maintenance operation
 func (s *DatabaseMaintenanceService) RunMaintenance(ctx context.Context) (*MaintenanceStats, error) {
 	s.logger.Println("Starting database maintenance operation...")
-	
+
 	stats := &MaintenanceStats{
 		StartTime: time.Now(),
 	}
@@ -172,7 +172,7 @@ func (s *DatabaseMaintenanceService) RunMaintenance(ctx context.Context) (*Maint
 	stats.EndTime = time.Now()
 	stats.Duration = stats.EndTime.Sub(stats.StartTime).String()
 
-	s.logger.Printf("Maintenance completed: %d records processed, %d archived, %d deleted", 
+	s.logger.Printf("Maintenance completed: %d records processed, %d archived, %d deleted",
 		stats.RecordsProcessed, stats.RecordsArchived, stats.RecordsDeleted)
 
 	return stats, nil
@@ -208,13 +208,13 @@ func (s *DatabaseMaintenanceService) runMaintenanceLoop(ctx context.Context) {
 func (s *DatabaseMaintenanceService) cleanupOldRecords(ctx context.Context, stats *MaintenanceStats) error {
 	// Delete records older than archival threshold that are already expired
 	cutoffDate := time.Now().Add(-s.archivalThreshold)
-	
+
 	var count int64
 	err := s.db.Model(&models.ProjectHistory{}).
-		Where("created_at < ? AND zip_file_status IN (?)", 
+		Where("created_at < ? AND zip_file_status IN (?)",
 			cutoffDate, []string{string(models.ZipFileStatusExpired), string(models.ZipFileStatusDeleted)}).
 		Count(&count).Error
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to count old records: %w", err)
 	}
@@ -232,42 +232,46 @@ func (s *DatabaseMaintenanceService) cleanupOldRecords(ctx context.Context, stat
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			result := s.db.Where("created_at < ? AND zip_file_status IN (?)", 
-				cutoffDate, []string{string(models.ZipFileStatusExpired), string(models.ZipFileStatusDeleted)}).
-				Limit(s.cleanupBatchSize).
-				Delete(&models.ProjectHistory{})
-			
-			if result.Error != nil {
-				return fmt.Errorf("failed to delete old records: %w", result.Error)
-			}
-
-			deletedCount := int(result.RowsAffected)
-			stats.RecordsDeleted += deletedCount
-
-			if deletedCount == 0 {
-				return nil
-			}
-
-			s.logger.Printf("Deleted batch of %d old records", deletedCount)
-			
-			// Add a small delay to prevent overwhelming the database
-			time.Sleep(10 * time.Millisecond)
+			// Continue with deletion
 		}
+
+		result := s.db.Where("created_at < ? AND zip_file_status IN (?)",
+			cutoffDate, []string{string(models.ZipFileStatusExpired), string(models.ZipFileStatusDeleted)}).
+			Limit(s.cleanupBatchSize).
+			Delete(&models.ProjectHistory{})
+
+		if result.Error != nil {
+			return fmt.Errorf("failed to delete old records: %w", result.Error)
+		}
+
+		deletedCount := int(result.RowsAffected)
+		stats.RecordsDeleted += deletedCount
+
+		if deletedCount == 0 {
+			break
+		}
+
+		s.logger.Printf("Deleted batch of %d old records", deletedCount)
+
+		// Add a small delay to prevent overwhelming the database
+		time.Sleep(10 * time.Millisecond)
 	}
+
+	return nil
 }
 
 // archiveOldRecords implements archival strategy for historical data
 func (s *DatabaseMaintenanceService) archiveOldRecords(ctx context.Context, stats *MaintenanceStats) error {
 	// For now, we'll implement a simple archival by updating a flag
 	// In a more complex system, this could move data to a separate archive table
-	
+
 	archiveDate := time.Now().Add(-s.archivalThreshold / 2) // Archive at half the cleanup threshold
-	
+
 	var count int64
 	err := s.db.Model(&models.ProjectHistory{}).
 		Where("created_at < ? AND zip_file_status = ?", archiveDate, string(models.ZipFileStatusExpired)).
 		Count(&count).Error
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to count records for archival: %w", err)
 	}
@@ -296,7 +300,7 @@ func (s *DatabaseMaintenanceService) cleanupOrphanedRecords(ctx context.Context,
 		Joins("LEFT JOIN users ON users.id = project_history.user_id").
 		Where("users.id IS NULL").
 		Find(&orphanedRecords).Error
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to find orphaned records: %w", err)
 	}
@@ -460,12 +464,12 @@ func (s *DatabaseMaintenanceService) getRecordCounts(report *DatabaseHealthRepor
 func (s *DatabaseMaintenanceService) measureQueryPerformance(ctx context.Context, report *DatabaseHealthReport) error {
 	// Measure a common query performance
 	start := time.Now()
-	
+
 	var count int64
 	err := s.db.Model(&models.ProjectHistory{}).
 		Where("created_at > ?", time.Now().Add(-30*24*time.Hour)).
 		Count(&count).Error
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to execute performance test query: %w", err)
 	}
@@ -488,7 +492,7 @@ func (s *DatabaseMaintenanceService) checkTableHealth(ctx context.Context, repor
 	err := s.db.Raw(`
 		SELECT pg_total_relation_size('project_history') / 1024.0 / 1024.0 as size_mb
 	`).Scan(&tableSize).Error
-	
+
 	if err == nil && tableSize.Valid {
 		report.TableSize = int64(tableSize.Float64)
 	}
@@ -511,27 +515,27 @@ func (s *DatabaseMaintenanceService) checkTableHealth(ctx context.Context, repor
 // generateRecommendations generates maintenance recommendations based on health metrics
 func (s *DatabaseMaintenanceService) generateRecommendations(report *DatabaseHealthReport) {
 	if report.OrphanedRecords > 0 {
-		report.RecommendedActions = append(report.RecommendedActions, 
+		report.RecommendedActions = append(report.RecommendedActions,
 			fmt.Sprintf("Clean up %d orphaned records", report.OrphanedRecords))
 	}
 
 	if report.ExpiredRecords > 1000 {
-		report.RecommendedActions = append(report.RecommendedActions, 
+		report.RecommendedActions = append(report.RecommendedActions,
 			fmt.Sprintf("Consider archiving %d expired records", report.ExpiredRecords))
 	}
 
 	if report.AverageQueryTime > 100 {
-		report.RecommendedActions = append(report.RecommendedActions, 
+		report.RecommendedActions = append(report.RecommendedActions,
 			"Query performance is slow, consider index optimization")
 	}
 
 	if report.TableSize > 1000 { // > 1GB
-		report.RecommendedActions = append(report.RecommendedActions, 
+		report.RecommendedActions = append(report.RecommendedActions,
 			"Table size is large, consider implementing data archival")
 	}
 
 	if report.IndexEfficiency < 0.7 {
-		report.RecommendedActions = append(report.RecommendedActions, 
+		report.RecommendedActions = append(report.RecommendedActions,
 			"Index efficiency is low, consider rebuilding indexes")
 	}
 
@@ -556,7 +560,7 @@ func (s *DatabaseMaintenanceService) GetPerformanceMetrics(ctx context.Context) 
 
 	for queryName := range queries {
 		start := time.Now()
-		
+
 		switch queryName {
 		case "user_history":
 			var projects []models.ProjectHistory
@@ -571,7 +575,7 @@ func (s *DatabaseMaintenanceService) GetPerformanceMetrics(ctx context.Context) 
 			}
 			s.db.Model(&models.ProjectHistory{}).Select("framework, COUNT(*) as count").Group("framework").Scan(&results)
 		}
-		
+
 		duration := time.Since(start)
 		metrics.QueryExecutionTime[queryName] = float64(duration.Nanoseconds()) / 1e6
 	}
@@ -583,7 +587,7 @@ func (s *DatabaseMaintenanceService) GetPerformanceMetrics(ctx context.Context) 
 func (s *DatabaseMaintenanceService) GetMaintenanceConfig() MaintenanceConfig {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	return MaintenanceConfig{
 		MaintenanceInterval: s.maintenanceInterval,
 		ArchivalThreshold:   s.archivalThreshold,
@@ -596,7 +600,7 @@ func (s *DatabaseMaintenanceService) GetMaintenanceConfig() MaintenanceConfig {
 func (s *DatabaseMaintenanceService) UpdateMaintenanceConfig(config MaintenanceConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if config.MaintenanceInterval > 0 {
 		s.maintenanceInterval = config.MaintenanceInterval
 	}
@@ -606,9 +610,9 @@ func (s *DatabaseMaintenanceService) UpdateMaintenanceConfig(config MaintenanceC
 	if config.CleanupBatchSize > 0 {
 		s.cleanupBatchSize = config.CleanupBatchSize
 	}
-	
-	s.logger.Printf("Updated maintenance configuration: interval=%v, archival_threshold=%v, batch_size=%d", 
+
+	s.logger.Printf("Updated maintenance configuration: interval=%v, archival_threshold=%v, batch_size=%d",
 		s.maintenanceInterval, s.archivalThreshold, s.cleanupBatchSize)
-	
+
 	return nil
 }
