@@ -227,7 +227,6 @@ func (s *DatabaseMaintenanceService) cleanupOldRecords(ctx context.Context, stat
 	stats.RecordsProcessed += int(count)
 
 	// Delete in batches to avoid long-running transactions
-cleanup_loop:
 	for {
 		select {
 		case <-ctx.Done():
@@ -246,7 +245,7 @@ cleanup_loop:
 			stats.RecordsDeleted += deletedCount
 
 			if deletedCount == 0 {
-				break cleanup_loop
+				return nil
 			}
 
 			s.logger.Printf("Deleted batch of %d old records", deletedCount)
@@ -255,8 +254,6 @@ cleanup_loop:
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
-
-	return nil
 }
 
 // archiveOldRecords implements archival strategy for historical data
