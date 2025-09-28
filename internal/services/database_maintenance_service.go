@@ -227,6 +227,7 @@ func (s *DatabaseMaintenanceService) cleanupOldRecords(ctx context.Context, stat
 	stats.RecordsProcessed += int(count)
 
 	// Delete in batches to avoid long-running transactions
+cleanup_loop:
 	for {
 		select {
 		case <-ctx.Done():
@@ -245,7 +246,7 @@ func (s *DatabaseMaintenanceService) cleanupOldRecords(ctx context.Context, stat
 			stats.RecordsDeleted += deletedCount
 
 			if deletedCount == 0 {
-				break
+				break cleanup_loop
 			}
 
 			s.logger.Printf("Deleted batch of %d old records", deletedCount)
