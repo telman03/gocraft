@@ -27,11 +27,11 @@ help: ## Show this help message
 
 .PHONY: build
 build: ## Build the application
-	$(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/main.go
+	$(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/{{.ProjectName}}/main.go
 
 .PHONY: build-linux
 build-linux: ## Build for Linux
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_UNIX) ./cmd/main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_UNIX) ./cmd/{{.ProjectName}}/main.go
 
 .PHONY: clean
 clean: ## Clean build artifacts
@@ -49,7 +49,7 @@ test-coverage: ## Run tests with coverage
 
 .PHONY: run
 run: ## Run the application
-	$(GOCMD) run ./cmd/main.go
+	$(GOCMD) run ./cmd/{{.ProjectName}}/main.go
 
 .PHONY: run-docker
 run-docker: ## Run with Docker
@@ -90,7 +90,7 @@ lint-install: ## Install linter
 
 .PHONY: swagger
 swagger: ## Generate Swagger docs
-	swag init -g cmd/main.go
+	swag init -g cmd/{{.ProjectName}}/main.go
 
 .PHONY: swagger-install
 swagger-install: ## Install Swagger
@@ -172,7 +172,7 @@ generate: ## Generate code
 
 .PHONY: install
 install: ## Install the application
-	$(GOBUILD) -o $(GOPATH)/bin/$(BINARY_NAME) ./cmd/main.go
+	$(GOBUILD) -o $(GOPATH)/bin/$(BINARY_NAME) ./cmd/{{.ProjectName}}/main.go
 
 .PHONY: uninstall
 uninstall: ## Uninstall the application

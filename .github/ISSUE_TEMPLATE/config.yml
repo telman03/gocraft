@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/your-org/gocraft/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 📖 Documentation
+    url: https://github.com/your-org/gocraft/blob/main/docs/README.md
+    about: Check out our comprehensive documentation
+  - name: 🔒 Security Issues
+    url: https://github.com/your-org/gocraft/security/advisories/new
+    about: Report security vulnerabilities privately

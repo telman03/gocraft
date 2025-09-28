@@ -78,8 +78,8 @@ var featureMappings = map[string]TemplateMapping{
 	// Main application files
 	"main": {
 		SourcePath:      "main.tmpl",
-		DestinationPath: "main.go",
-		IsRootFile:      true,
+		DestinationPath: "cmd/{{.ProjectName}}/main.go",
+		IsRootFile:      false,
 	},
 	"router": {
 		SourcePath:      "router.tmpl",
@@ -418,7 +418,14 @@ func GenerateProject(projectName string, features []string) (string, error) {
 	// Render main.go with feature flags if main template exists
 	mainTemplatePath := filepath.Join("internal", "templates", "main.tmpl")
 	if _, err := os.Stat(mainTemplatePath); err == nil {
-		mainDestPath := filepath.Join(projectPath, "main.go")
+		// Create cmd directory structure
+		cmdDir := filepath.Join(projectPath, "cmd", projectName)
+		err = os.MkdirAll(cmdDir, 0755)
+		if err != nil {
+			return "", fmt.Errorf("failed to create cmd directory: %v", err)
+		}
+		
+		mainDestPath := filepath.Join(cmdDir, "main.go")
 		templateData := map[string]interface{}{
 			"ProjectName": projectName,
 			"Features":    features,

@@ -439,12 +439,13 @@ func getFilteredHeaders(c *fiber.Ctx) map[string]string {
 		"x-auth-token":  true,
 	}
 
-	c.Request().Header.VisitAll(func(key, value []byte) {
-		keyStr := strings.ToLower(string(key))
-		if !sensitiveHeaders[keyStr] {
-			headers[keyStr] = string(value)
+	// Iterate through headers using the new approach
+	for key, values := range c.GetReqHeaders() {
+		keyStr := strings.ToLower(key)
+		if !sensitiveHeaders[keyStr] && len(values) > 0 {
+			headers[keyStr] = values[0]
 		}
-	})
+	}
 
 	return headers
 }

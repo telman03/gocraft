@@ -173,13 +173,14 @@ func logUnexpectedError(logger *logging.RequestLogger, err error, c *fiber.Ctx, 
 
 	// Add request headers (filtered)
 	headers := make(map[string]string)
-	c.Request().Header.VisitAll(func(key, value []byte) {
-		keyStr := strings.ToLower(string(key))
+	// Iterate through headers using the new approach
+	for key, values := range c.GetReqHeaders() {
+		keyStr := strings.ToLower(key)
 		// Skip sensitive headers
-		if !isSensitiveHeader(keyStr) {
-			headers[keyStr] = string(value)
+		if !isSensitiveHeader(keyStr) && len(values) > 0 {
+			headers[keyStr] = values[0]
 		}
-	})
+	}
 	fields["headers"] = headers
 
 	logger.Error("Unexpected error occurred", err, fields)

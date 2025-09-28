@@ -319,7 +319,7 @@ func (s *FileCleanupService) cleanupOrphanedFiles(ctx context.Context) (*Cleanup
 	for _, filePath := range orphanedFiles {
 		select {
 		case <-ctx.Done():
-			break
+			goto cleanup_done
 		default:
 			// Get file size before deletion
 			if size, err := s.fileService.GetFileSize(filePath); err == nil {
@@ -337,6 +337,7 @@ func (s *FileCleanupService) cleanupOrphanedFiles(ctx context.Context) (*Cleanup
 		}
 	}
 
+cleanup_done:
 	stats.EndTime = time.Now()
 	stats.Duration = stats.EndTime.Sub(stats.StartTime).String()
 
