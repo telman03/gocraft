@@ -269,13 +269,14 @@ func logRequestError(requestLogger *logging.RequestLogger, c *fiber.Ctx, err err
 
 	// Add request headers (filtered)
 	headers := make(map[string]string)
-	c.Request().Header.VisitAll(func(key, value []byte) {
-		keyStr := string(key)
+	// Iterate through headers using the new approach
+	for key, values := range c.GetReqHeaders() {
+		keyStr := key
 		// Skip sensitive headers
-		if !isSensitiveHeaderMonitoring(keyStr) {
-			headers[keyStr] = string(value)
+		if !isSensitiveHeaderMonitoring(keyStr) && len(values) > 0 {
+			headers[keyStr] = values[0]
 		}
-	})
+	}
 	fields["headers"] = headers
 
 	requestLogger.Error("Request failed", err, fields)
