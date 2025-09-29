@@ -12,7 +12,7 @@ require (
 	github.com/swaggo/swag v1.16.5
 	golang.org/x/crypto v0.42.0
 	gorm.io/datatypes v1.2.6
-	gorm.io/driver/sqlite v1.4.3
+	gorm.io/driver/sqlite v1.6.0
 )
 
 require (
@@ -36,7 +36,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
-	github.com/mattn/go-sqlite3 v1.14.15 // indirect
+	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/mod v0.27.0 // indirect
 	golang.org/x/net v0.43.0 // indirect
