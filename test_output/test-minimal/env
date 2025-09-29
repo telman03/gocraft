@@ -1,0 +1,157 @@
+# =============================================================================
+# test-minimal Environment Configuration
+# =============================================================================
+# Copy this file to .env and update the values for your environment
+# Never commit .env files to version control!
+
+# =============================================================================
+# Server Configuration
+# =============================================================================
+APP_NAME=test-minimal
+APP_ENV=development
+PORT=8080
+HOST=0.0.0.0
+APP_VERSION=1.0.0
+
+
+
+# =============================================================================
+# Database Configuration
+# =============================================================================
+
+
+
+# SQLite Configuration
+SQLITE_DATABASE=./test-minimal.db
+SQLITE_CACHE=shared
+SQLITE_MODE=rwc
+
+
+
+
+
+
+
+
+# =============================================================================
+# CORS Configuration
+# =============================================================================
+CORS_ALLOW_ORIGINS=*
+CORS_ALLOW_METHODS=GET,POST,PUT,DELETE,OPTIONS,PATCH
+CORS_ALLOW_HEADERS=Content-Type,Authorization,X-Requested-With,Accept,Origin
+CORS_ALLOW_CREDENTIALS=true
+CORS_MAX_AGE=86400
+
+
+# =============================================================================
+# Rate Limiting
+# =============================================================================
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_WINDOW=1m
+RATE_LIMIT_BURST=200
+RATE_LIMIT_SKIP_SUCCESSFUL=false
+
+# =============================================================================
+# File Upload Configuration
+# =============================================================================
+UPLOAD_MAX_SIZE=10MB
+UPLOAD_ALLOWED_TYPES=image/jpeg,image/png,image/gif,application/pdf,text/plain
+UPLOAD_PATH=uploads
+UPLOAD_CREATE_DIRS=true
+
+# =============================================================================
+# Email Configuration (SMTP)
+# =============================================================================
+SMTP_ENABLED=false
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM=noreply@test-minimal.com
+SMTP_FROM_NAME=test-minimal
+SMTP_USE_TLS=true
+
+# =============================================================================
+# Email Service Configuration (Resend, SendGrid, etc.)
+# =============================================================================
+# Resend Configuration
+RESEND_API_KEY=your-resend-api-key
+EMAIL_FROM=noreply@test-minimal.com
+EMAIL_FROM_NAME=test-minimal
+
+# SendGrid Configuration (alternative)
+# SENDGRID_API_KEY=your-sendgrid-api-key
+# SENDGRID_FROM_EMAIL=noreply@test-minimal.com
+
+
+# =============================================================================
+# Cache Configuration
+# =============================================================================
+CACHE_ENABLED=true
+CACHE_TTL=3600
+CACHE_PREFIX=test-minimal
+CACHE_CLEANUP_INTERVAL=600
+
+# =============================================================================
+# Queue Configuration
+# =============================================================================
+QUEUE_ENABLED=false
+QUEUE_REDIS_URL=redis://localhost:6379/1
+QUEUE_WORKERS=5
+QUEUE_MAX_RETRIES=3
+QUEUE_RETRY_DELAY=5s
+
+# =============================================================================
+# Health Check Configuration
+# =============================================================================
+HEALTH_CHECK_ENABLED=true
+HEALTH_CHECK_PATH=/health
+HEALTH_CHECK_TIMEOUT=5s
+HEALTH_CHECK_INTERVAL=30s
+
+# =============================================================================
+# Development Configuration
+# =============================================================================
+DEBUG=true
+HOT_RELOAD=true
+AUTO_MIGRATE=true
+ENABLE_PROFILER=false
+ENABLE_SWAGGER=true
+
+# =============================================================================
+# Production Overrides (uncomment and modify for production)
+# =============================================================================
+# APP_ENV=production
+# DEBUG=false
+# LOG_LEVEL=info
+# LOG_FORMAT=json
+# CORS_ALLOW_ORIGINS=https://yourdomain.com
+# JWT_SECRET=your-production-jwt-secret-min-32-chars
+# DATABASE_URL=postgres://user:pass@prod-db:5432/dbname?sslmode=require
+# REDIS_URL=redis://prod-redis:6379
+# RATE_LIMIT_REQUESTS=1000
+# CACHE_TTL=7200
+
+# =============================================================================
+# External Services (uncomment as needed)
+# =============================================================================
+# Stripe Configuration
+# STRIPE_SECRET_KEY=your-stripe-secret-key
+# STRIPE_PUBLISHABLE_KEY=your-stripe-publishable-key
+# STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
+
+# AWS Configuration
+# AWS_REGION=us-east-1
+# AWS_ACCESS_KEY_ID=your-aws-access-key
+# AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+# AWS_S3_BUCKET=your-s3-bucket
+
+# Google Cloud Configuration
+# GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
+# GCP_PROJECT_ID=your-gcp-project-id
+
+# Twilio Configuration
+# TWILIO_ACCOUNT_SID=your-twilio-account-sid
+# TWILIO_AUTH_TOKEN=your-twilio-auth-token
+# TWILIO_PHONE_NUMBER=your-twilio-phone-number 

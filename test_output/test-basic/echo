@@ -1,0 +1,149 @@
+package main
+
+import (
+	"log"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"test-basic/auth"
+	"test-basic/db"
+	"test-basic/router"
+	"test-basic/config"
+	"test-basic/logger"
+)
+
+func main() {
+	// Initialize logger
+	logger.Init()
+
+	// Load configuration
+	cfg := config.Load()
+
+	// Create Echo instance
+	e := echo.New()
+
+	// Add middleware
+	setupMiddleware(e)
+
+	// Connect to database
+	db.Connect()
+
+	// Setup routes
+	router.SetupRoutes(e)
+
+	// Health check endpoint
+	e.GET("/health", func(c echo.Context) error {
+		return c.JSON(200, map[string]interface{}{
+			"status": "healthy",
+			"service": "test-basic",
+			"version": "1.0.0",
+			"timestamp": time.Now().UTC(),
+		})
+	})
+
+	// Get port from environment or use default
+	port := os.Getenv("APP_PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	// Start server
+	log.Printf("Server starting on port %s", port)
+	if err := e.Start(":" + port); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
+}
+
+// setupMiddleware configures all middleware for the application
+func setupMiddleware(e *echo.Echo) {
+	// Request ID for tracing
+	e.Use(middleware.RequestID())
+
+	// CORS middleware
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{getEnv("CORS_ALLOW_ORIGINS", "*")},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
+		MaxAge:        86400,
+	}))
+
+	// Request timeout
+	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+		Timeout: getEnvAsDuration("REQUEST_TIMEOUT", 30*time.Second),
+	}))
+
+	// Rate limiting
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(
+		middleware.RateLimiterMemoryStoreConfig{
+			Rate:      getEnvAsInt("RATE_LIMIT_REQUESTS", 100),
+			Burst:     getEnvAsInt("RATE_LIMIT_BURST", 200),
+			ExpiresIn: getEnvAsDuration("RATE_LIMIT_WINDOW", 1*time.Minute),
+		},
+	)))
+
+	// Logging middleware
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "method=${method}, uri=${uri}, status=${status}, latency=${latency}, latency_human=${latency_human}\n",
+		Output: os.Stdout,
+	}))
+
+	// Recovery middleware
+	e.Use(middleware.Recover())
+
+	// Custom middleware for request logging
+	e.Use(customRequestLogger)
+}
+
+// customRequestLogger logs detailed request information
+func customRequestLogger(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		start := time.Now()
+
+		// Process request
+		err := next(c)
+
+		// Calculate duration
+		latency := time.Since(start)
+
+		// Log request details
+		logger.LogRequest(
+			c.Request().Method,
+			c.Request().URL.Path,
+			c.RealIP(),
+			latency,
+			c.Response().Status,
+		)
+
+		return err
+	}
+}
+
+// Helper functions
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func getEnvAsInt(key string, fallback int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return fallback
+}
+
+func getEnvAsDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return fallback
+} 

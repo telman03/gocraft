@@ -1,0 +1,293 @@
+# test-basic
+
+A modern Go backend API built with Fiber framework, featuring comprehensive tooling and best practices.
+
+## 🚀 Features
+
+- **Fast HTTP Server**: Built with Fiber framework for high performance
+- **Database Support**: PostgreSQL, Redis, and MongoDB integration
+- **Authentication**: JWT-based authentication with role-based access control
+- **API Documentation**: Swagger/OpenAPI with Redoc alternative
+- **Comprehensive Logging**: Structured logging with Zap
+- **Security**: CORS, rate limiting, helmet, and input validation
+- **DevOps Ready**: Docker, Docker Compose, GitHub Actions CI/CD
+- **Development Tools**: Makefile, hot reload, debugging support
+
+## 📋 Prerequisites
+
+- Go 1.21 or higher
+- Docker and Docker Compose
+- PostgreSQL (optional, can use Docker)
+- Redis (optional, can use Docker)
+- MongoDB (optional, can use Docker)
+
+## 🛠️ Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd test-basic
+   ```
+
+2. **Install dependencies**
+   ```bash
+   go mod download
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. **Run with Docker (recommended)**
+   ```bash
+   make run-docker
+   ```
+
+5. **Or run locally**
+   ```bash
+   make run
+   ```
+
+## 🏗️ Project Structure
+
+```
+test-basic/
+├── cmd/
+│   └── test-basic/
+│       └── main.go          # Application entry point
+├── internal/
+│   ├── api/                 # API handlers
+│   ├── auth/                # Authentication logic
+│   ├── config/              # Configuration management
+│   ├── db/                  # Database operations
+│   ├── middleware/          # HTTP middleware
+│   ├── models/              # Data models
+│   ├── redis/               # Redis operations
+│   ├── mongodb/             # MongoDB operations
+│   └── logger/              # Logging utilities
+├── docs/                    # API documentation
+├── migrations/              # Database migrations
+├── uploads/                 # File uploads
+├── logs/                    # Application logs
+├── docker-compose.yml       # Docker services
+├── Dockerfile              # Docker image
+├── Makefile                # Development commands
+├── .env                    # Environment variables
+└── README.md               # This file
+```
+
+## 🔧 Configuration
+
+The application uses environment variables for configuration. Copy `.env.example` to `.env` and customize:
+
+### Core Configuration
+- `APP_NAME`: Application name
+- `APP_ENV`: Environment (development/production/test)
+- `APP_PORT`: Server port
+- `DEBUG`: Enable debug mode
+
+### Database Configuration
+- `DATABASE_URL`: PostgreSQL connection string
+- `REDIS_URL`: Redis connection string
+- `MONGODB_URL`: MongoDB connection string
+
+### Security Configuration
+- `JWT_SECRET`: JWT signing secret
+- `CORS_ALLOW_ORIGINS`: Allowed CORS origins
+- `RATE_LIMIT_REQUESTS`: Rate limiting requests per window
+
+### Logging Configuration
+- `LOG_LEVEL`: Log level (debug/info/warn/error)
+- `LOG_FORMAT`: Log format (json/console)
+- `LOG_FILE`: Log file path
+
+## 🚀 Quick Start
+
+### Using Makefile (Recommended)
+
+```bash
+# Install dependencies
+make deps
+
+# Run the application
+make run
+
+# Run with Docker
+make run-docker
+
+# Run tests
+make test
+
+# Build for production
+make build
+
+# Generate API documentation
+make swagger
+```
+
+### Using Docker Compose
+
+```bash
+# Start all services
+docker-compose up --build
+
+# Start specific services
+docker-compose up postgres redis
+
+# View logs
+docker-compose logs -f app
+
+# Access database shell
+make db-shell
+```
+
+## 📚 API Documentation
+
+Once the application is running, you can access:
+
+- **Swagger UI**: http://localhost:8080/swagger/
+- **Redoc**: http://localhost:8080/docs
+- **API Health Check**: http://localhost:8080/health
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage
+make test-coverage
+
+# Run specific test
+go test ./internal/auth/...
+```
+
+## 🔍 Development
+
+### Code Quality
+
+```bash
+# Run linter
+make lint
+
+# Format code
+make format
+
+# Run security scan
+make security-scan
+```
+
+### Database Operations
+
+```bash
+# Run migrations
+make migrate-up
+
+# Rollback migrations
+make migrate-down
+
+# Create new migration
+make migrate-create
+```
+
+### Monitoring
+
+```bash
+# View application metrics
+curl http://localhost:8080/monitor
+
+# View logs
+make logs
+
+# Access application shell
+make shell
+```
+
+## 🐳 Docker
+
+### Build Image
+```bash
+make docker-build
+```
+
+### Run Container
+```bash
+make docker-run
+```
+
+### Push to Registry
+```bash
+make docker-push
+```
+
+## 📦 Deployment
+
+### Production Deployment
+
+1. **Set production environment variables**
+   ```bash
+   export APP_ENV=production
+   export DATABASE_URL=postgres://user:pass@prod-db:5432/dbname?sslmode=require
+   export JWT_SECRET=your-production-secret
+   ```
+
+2. **Build and deploy**
+   ```bash
+   make release
+   docker-compose -f docker-compose.prod.yml up -d
+   ```
+
+### CI/CD Pipeline
+
+The project includes GitHub Actions workflows for:
+- Automated testing
+- Security scanning
+- Docker image building
+- Deployment to production
+
+## 🔐 Security
+
+- **Authentication**: JWT-based with refresh tokens
+- **Authorization**: Role-based access control
+- **Input Validation**: Request body validation
+- **Rate Limiting**: Configurable rate limiting
+- **CORS**: Configurable CORS policies
+- **Security Headers**: Helmet middleware
+- **File Upload**: Secure file upload with validation
+
+## 📊 Monitoring
+
+- **Health Checks**: Built-in health check endpoint
+- **Metrics**: Application metrics via Fiber monitor
+- **Logging**: Structured logging with correlation IDs
+- **Error Tracking**: Sentry integration ready
+- **Performance**: New Relic integration ready
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Run the test suite
+6. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Documentation**: Check the API docs at `/swagger/`
+- **Issues**: Create an issue on GitHub
+- **Discussions**: Use GitHub Discussions
+
+## 🔄 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.
+
+---
+
+Built with ❤️ using Go and Fiber 

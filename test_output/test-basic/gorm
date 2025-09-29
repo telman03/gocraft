@@ -28,8 +28,8 @@ func Connect() {
 			host := getEnv("DB_HOST", "localhost")
 			port := getEnv("DB_PORT", "5432")
 			user := getEnv("DB_USER", "postgres")
-			password := getEnv("DB_PASSWORD", "")
-			database := getEnv("DB_NAME", "{{.ProjectName}}")
+			password := getEnv("DB_PASSWORD", "password")
+			database := getEnv("DB_NAME", "test-basic")
 			sslmode := getEnv("DB_SSL_MODE", "disable")
 			
 			dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
@@ -44,7 +44,7 @@ func Connect() {
 			port := getEnv("DB_PORT", "3306")
 			user := getEnv("DB_USER", "root")
 			password := getEnv("DB_PASSWORD", "")
-			database := getEnv("DB_NAME", "{{.ProjectName}}")
+			database := getEnv("DB_NAME", "test-basic")
 			
 			dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 				user, password, host, port, database)
@@ -55,7 +55,7 @@ func Connect() {
 		dbPath := os.Getenv("DATABASE_URL")
 		if dbPath == "" {
 			dataDir := getEnv("DB_DATA_DIR", "./data")
-			dbName := getEnv("DB_NAME", "{{.ProjectName}}.db")
+			dbName := getEnv("DB_NAME", "test-basic.db")
 			
 			if err := os.MkdirAll(dataDir, 0755); err != nil {
 				log.Fatal("Failed to create data directory:", err)

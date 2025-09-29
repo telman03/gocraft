@@ -22,7 +22,7 @@ type AuthService struct {
 func NewAuthService() *AuthService {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		panic("JWT_SECRET environment variable is required")
+		secret = "default-secret-change-in-production"
 	}
 	
 	return &AuthService{

@@ -1,0 +1,156 @@
+package main
+
+import (
+	"log"
+	"os"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/logger"
+	"github.com/gin-contrib/requestid"
+	"github.com/gin-contrib/timeout"
+	"time"
+	
+	"test-minimal/db"
+	"test-minimal/router"
+	
+	
+)
+
+func main() {
+	// Set Gin mode based on environment
+	if os.Getenv("GIN_MODE") == "" {
+		if os.Getenv("APP_ENV") == "production" {
+			gin.SetMode(gin.ReleaseMode)
+		} else {
+			gin.SetMode(gin.DebugMode)
+		}
+	}
+
+	// Initialize logger
+	
+
+	// Load configuration
+	
+
+	// Create Gin engine
+	r := gin.New()
+
+	// Add middleware
+	setupMiddleware(r)
+
+	// Connect to database
+	db.Connect()
+
+	// Setup routes
+	router.SetupRoutes(r)
+
+	// Health check endpoint
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "healthy",
+			"service": "test-minimal",
+			"version": "1.0.0",
+			"timestamp": time.Now().UTC(),
+		})
+	})
+
+	// Get port from environment or use default
+	port := os.Getenv("APP_PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	// Start server
+	log.Printf("Server starting on port %s", port)
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
+}
+
+// setupMiddleware configures all middleware for the application
+func setupMiddleware(r *gin.Engine) {
+	// Request ID for tracing
+	r.Use(requestid.New())
+
+	// CORS middleware
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{getEnv("CORS_ALLOW_ORIGINS", "*")},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
+	// Request timeout
+	r.Use(timeout.New(
+		timeout.WithTimeout(getEnvAsDuration("REQUEST_TIMEOUT", 30*time.Second)),
+		timeout.WithHandler(func(c *gin.Context) {
+			c.Next()
+		}),
+		timeout.WithResponse(func(c *gin.Context) {
+			c.JSON(408, gin.H{"error": "Request timeout"})
+		}),
+	))
+
+	// Logging middleware
+	r.Use(logger.SetLogger(
+		logger.WithUTC(true),
+		logger.WithSkipPath([]string{"/health", "/metrics"}),
+	))
+
+	// Recovery middleware
+	r.Use(gin.Recovery())
+
+	// Custom middleware for request logging
+	r.Use(customRequestLogger)
+}
+
+// customRequestLogger logs detailed request information
+func customRequestLogger(c *gin.Context) {
+	start := time.Now()
+	path := c.Request.URL.Path
+	raw := c.Request.URL.RawQuery
+
+	// Process request
+	c.Next()
+
+	// Calculate duration
+	latency := time.Since(start)
+
+	// Log request details
+	
+
+	// Log to console if in debug mode
+	if gin.Mode() == gin.DebugMode {
+		if raw != "" {
+			path = path + "?" + raw
+		}
+		log.Printf("[GIN] %s | %3d | %13v | %15s | %s",
+			c.Request.Method,
+			c.Writer.Status(),
+			latency,
+			c.ClientIP(),
+			path,
+		)
+	}
+}
+
+// Helper functions
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func getEnvAsDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return fallback
+} 

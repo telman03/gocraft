@@ -1,0 +1,189 @@
+package logger
+
+import (
+	"os"
+	"time"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
+)
+
+var Log *zap.Logger
+
+// Config holds logger configuration
+type Config struct {
+	Level      string
+	Format     string
+	OutputPath string
+	MaxSize    int
+	MaxAge     int
+	MaxBackups int
+	Compress   bool
+}
+
+// Init initializes the logger
+func Init() {
+	config := getConfig()
+	
+	var core zapcore.Core
+	
+	// Create encoder config
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.TimeKey = "timestamp"
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	
+	// Choose encoder based on format
+	var encoder zapcore.Encoder
+	if config.Format == "json" {
+		encoder = zapcore.NewJSONEncoder(encoderConfig)
+	} else {
+		encoder = zapcore.NewConsoleEncoder(encoderConfig)
+	}
+	
+	// Create writer
+	var writer zapcore.WriteSyncer
+	if config.OutputPath != "" {
+		writer = zapcore.AddSync(&lumberjack.Logger{
+			Filename:   config.OutputPath,
+			MaxSize:    config.MaxSize,    // megabytes
+			MaxBackups: config.MaxBackups,
+			MaxAge:     config.MaxAge,     // days
+			Compress:   config.Compress,
+		})
+	} else {
+		writer = zapcore.AddSync(os.Stdout)
+	}
+	
+	// Parse log level
+	level, err := zapcore.ParseLevel(config.Level)
+	if err != nil {
+		level = zapcore.InfoLevel
+	}
+	
+	// Create core
+	core = zapcore.NewCore(encoder, writer, level)
+	
+	// Create logger
+	Log = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	
+	// Replace global logger
+	zap.ReplaceGlobals(Log)
+}
+
+// getConfig returns logger configuration from environment
+func getConfig() Config {
+	return Config{
+		Level:      getEnv("LOG_LEVEL", "info"),
+		Format:     getEnv("LOG_FORMAT", "json"),
+		OutputPath: getEnv("LOG_FILE", ""),
+		MaxSize:    100,   // MB
+		MaxAge:     30,    // days
+		MaxBackups: 10,
+		Compress:   true,
+	}
+}
+
+// getEnv gets environment variable with fallback
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+// Info logs info level message
+func Info(msg string, fields ...zap.Field) {
+	Log.Info(msg, fields...)
+}
+
+// Error logs error level message
+func Error(msg string, fields ...zap.Field) {
+	Log.Error(msg, fields...)
+}
+
+// Debug logs debug level message
+func Debug(msg string, fields ...zap.Field) {
+	Log.Debug(msg, fields...)
+}
+
+// Warn logs warn level message
+func Warn(msg string, fields ...zap.Field) {
+	Log.Warn(msg, fields...)
+}
+
+// Fatal logs fatal level message and exits
+func Fatal(msg string, fields ...zap.Field) {
+	Log.Fatal(msg, fields...)
+}
+
+// WithContext creates a logger with context fields
+func WithContext(fields ...zap.Field) *zap.Logger {
+	return Log.With(fields...)
+}
+
+// Sync flushes any buffered log entries
+func Sync() error {
+	return Log.Sync()
+}
+
+// Helper functions for common logging patterns
+
+// LogRequest logs HTTP request details
+func LogRequest(method, path, remoteAddr string, duration time.Duration, statusCode int) {
+	Log.Info("HTTP Request",
+		zap.String("method", method),
+		zap.String("path", path),
+		zap.String("remote_addr", remoteAddr),
+		zap.Duration("duration", duration),
+		zap.Int("status_code", statusCode),
+	)
+}
+
+// LogError logs error with context
+func LogError(err error, context string, fields ...zap.Field) {
+	allFields := append(fields, zap.Error(err), zap.String("context", context))
+	Log.Error("Error occurred", allFields...)
+}
+
+// LogDatabase logs database operation
+func LogDatabase(operation, table string, duration time.Duration, err error) {
+	fields := []zap.Field{
+		zap.String("operation", operation),
+		zap.String("table", table),
+		zap.Duration("duration", duration),
+	}
+	
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+		Log.Error("Database operation failed", fields...)
+	} else {
+		Log.Info("Database operation completed", fields...)
+	}
+}
+
+// LogCache logs cache operation
+func LogCache(operation, key string, hit bool, duration time.Duration) {
+	Log.Info("Cache operation",
+		zap.String("operation", operation),
+		zap.String("key", key),
+		zap.Bool("hit", hit),
+		zap.Duration("duration", duration),
+	)
+}
+
+// LogAuth logs authentication events
+func LogAuth(event, userID string, success bool, fields ...zap.Field) {
+	allFields := append(fields,
+		zap.String("event", event),
+		zap.String("user_id", userID),
+		zap.Bool("success", success),
+	)
+	
+	if success {
+		Log.Info("Authentication event", allFields...)
+	} else {
+		Log.Warn("Authentication failed", allFields...)
+	}
+} 

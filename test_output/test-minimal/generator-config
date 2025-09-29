@@ -1,0 +1,344 @@
+package generator
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+)
+
+// Config represents the generator configuration
+type Config struct {
+	ProjectName string   `json:"project_name"`
+	Framework   string   `json:"framework"`
+	Database    string   `json:"database"`
+	ORM         string   `json:"orm"`
+	Features    Features `json:"features"`
+	AI          AI       `json:"ai"`
+}
+
+// Features represents the features to include
+type Features struct {
+	Auth        bool `json:"auth"`
+	DB          bool `json:"db"`
+	Router      bool `json:"router"`
+	Config      bool `json:"config"`
+	Logger      bool `json:"logger"`
+	Redis       bool `json:"redis"`
+	MongoDB     bool `json:"mongodb"`
+	Middleware  bool `json:"middleware"`
+	Swagger     bool `json:"swagger"`
+	Postman     bool `json:"postman"`
+	Redoc       bool `json:"redoc"`
+	Docker      bool `json:"docker"`
+	GitHubActions bool `json:"github_actions"`
+	Makefile    bool `json:"makefile"`
+	Env         bool `json:"env"`
+	Gitignore   bool `json:"gitignore"`
+	Readme      bool `json:"readme"`
+	Migrations  bool `json:"migrations"`
+}
+
+// AI represents AI integration features
+type AI struct {
+	OpenAI     bool `json:"openai"`
+	OpenRouter bool `json:"openrouter"`
+	Claude     bool `json:"claude"`
+	Mistral    bool `json:"mistral"`
+}
+
+// DefaultConfig returns a default configuration
+func DefaultConfig() *Config {
+	return &Config{
+		ProjectName: "myapp",
+		Framework:   "fiber",
+		Database:    "postgres",
+		ORM:         "gorm",
+		Features: Features{
+			Auth:         true,
+			DB:           true,
+			Router:       true,
+			Config:       true,
+			Logger:       true,
+			Redis:        false,
+			MongoDB:      false,
+			Middleware:   true,
+			Swagger:      true,
+			Postman:      true,
+			Redoc:        true,
+			Docker:       true,
+			GitHubActions: true,
+			Makefile:     true,
+			Env:          true,
+			Gitignore:    true,
+			Readme:       true,
+			Migrations:   true,
+		},
+		AI: AI{
+			OpenAI:     false,
+			OpenRouter: false,
+			Claude:     false,
+			Mistral:    false,
+		},
+	}
+}
+
+// LoadConfig loads configuration from file or creates default
+func LoadConfig(configPath string) (*Config, error) {
+	if configPath == "" {
+		return DefaultConfig(), nil
+	}
+
+	file, err := os.Open(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open config file: %w", err)
+	}
+	defer file.Close()
+
+	var config Config
+	if err := json.NewDecoder(file).Decode(&config); err != nil {
+		return nil, fmt.Errorf("failed to decode config: %w", err)
+	}
+
+	return &config, nil
+}
+
+// Validate validates the configuration
+func (c *Config) Validate() error {
+	// Validate project name
+	if c.ProjectName == "" {
+		return fmt.Errorf("project name is required")
+	}
+
+	// Validate framework
+	validFrameworks := []string{"fiber", "gin", "echo", "chi", "gorilla", "fasthttp"}
+	if !contains(validFrameworks, c.Framework) {
+		return fmt.Errorf("invalid framework: %s. Valid options: %s", c.Framework, strings.Join(validFrameworks, ", "))
+	}
+
+	// Validate database
+	validDatabases := []string{"postgres", "mysql", "sqlite", "badger"}
+	if !contains(validDatabases, c.Database) {
+		return fmt.Errorf("invalid database: %s. Valid options: %s", c.Database, strings.Join(validDatabases, ", "))
+	}
+
+	// Validate ORM
+	validORMs := []string{"gorm", "sqlc", "ent", "pgx", "raw"}
+	if !contains(validORMs, c.ORM) {
+		return fmt.Errorf("invalid ORM: %s. Valid options: %s", c.ORM, strings.Join(validORMs, ", "))
+	}
+
+	// Validate ORM and database compatibility
+	if err := c.validateORMCompatibility(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateORMCompatibility validates ORM and database compatibility
+func (c *Config) validateORMCompatibility() error {
+	switch c.ORM {
+	case "sqlc":
+		if c.Database != "postgres" && c.Database != "mysql" {
+			return fmt.Errorf("sqlc only supports PostgreSQL and MySQL")
+		}
+	case "ent":
+		if c.Database != "postgres" && c.Database != "mysql" && c.Database != "sqlite" {
+			return fmt.Errorf("ent only supports PostgreSQL, MySQL, and SQLite")
+		}
+	case "pgx":
+		if c.Database != "postgres" {
+			return fmt.Errorf("pgx only supports PostgreSQL")
+		}
+	case "gorm":
+		// GORM supports all databases
+	case "raw":
+		// Raw SQL supports all databases
+	default:
+		return fmt.Errorf("unknown ORM: %s", c.ORM)
+	}
+	return nil
+}
+
+// GetTemplateMap returns a map of template names to include
+func (c *Config) GetTemplateMap() map[string]bool {
+	return map[string]bool{
+		// Framework templates
+		"main": c.Features.Router,
+		
+		// Database templates
+		"db": c.Features.DB,
+		
+		// Feature templates
+		"auth":        c.Features.Auth,
+		"config":      c.Features.Config,
+		"logger":      c.Features.Logger,
+		"redis":       c.Features.Redis,
+		"mongodb":     c.Features.MongoDB,
+		"middleware":  c.Features.Middleware,
+		
+		// Documentation templates
+		"swagger":     c.Features.Swagger,
+		"postman":     c.Features.Postman,
+		"redoc":       c.Features.Redoc,
+		
+		// DevOps templates
+		"dockerfile":      c.Features.Docker,
+		"docker-compose":  c.Features.Docker,
+		"github-actions":  c.Features.GitHubActions,
+		"makefile":        c.Features.Makefile,
+		"env":             c.Features.Env,
+		"gitignore":       c.Features.Gitignore,
+		"readme":          c.Features.Readme,
+		"migrations":      c.Features.Migrations,
+		
+		// AI templates
+		"openai":     c.AI.OpenAI,
+		"openrouter": c.AI.OpenRouter,
+		"claude":     c.AI.Claude,
+	}
+}
+
+// GetDatabaseTemplate returns the appropriate database template name
+func (c *Config) GetDatabaseTemplate() string {
+	switch c.Database {
+	case "postgres":
+		return "db"
+	case "mysql":
+		return "mysql"
+	case "sqlite":
+		return "sqlite"
+	case "badger":
+		return "badger"
+	default:
+		return "db"
+	}
+}
+
+// GetORMTemplate returns the appropriate ORM template name
+func (c *Config) GetORMTemplate() string {
+	switch c.ORM {
+	case "gorm":
+		return "gorm"
+	case "sqlc":
+		return "sqlc"
+	case "ent":
+		return "ent"
+	case "pgx":
+		return "pgx"
+	case "raw":
+		return "db"
+	default:
+		return "gorm"
+	}
+}
+
+// GetFrameworkTemplate returns the appropriate framework template name
+func (c *Config) GetFrameworkTemplate() string {
+	switch c.Framework {
+	case "fiber":
+		return "main"
+	case "gin":
+		return "gin"
+	case "echo":
+		return "echo"
+	case "chi":
+		return "chi"
+	case "gorilla":
+		return "gorilla"
+	case "fasthttp":
+		return "fasthttp"
+	default:
+		return "main"
+	}
+}
+
+// GetDependencies returns the list of dependencies to include
+func (c *Config) GetDependencies() []string {
+	deps := []string{}
+
+	// Framework dependencies
+	switch c.Framework {
+	case "fiber":
+		deps = append(deps, "github.com/gofiber/fiber/v2")
+	case "gin":
+		deps = append(deps, "github.com/gin-gonic/gin", "github.com/gin-contrib/cors", "github.com/gin-contrib/logger", "github.com/gin-contrib/requestid", "github.com/gin-contrib/timeout")
+	case "echo":
+		deps = append(deps, "github.com/labstack/echo/v4", "github.com/labstack/echo/v4/middleware")
+	case "chi":
+		deps = append(deps, "github.com/go-chi/chi/v5", "github.com/go-chi/cors")
+	case "gorilla":
+		deps = append(deps, "github.com/gorilla/mux", "github.com/rs/cors")
+	case "fasthttp":
+		deps = append(deps, "github.com/valyala/fasthttp", "github.com/fasthttp/router")
+	}
+
+	// Database dependencies
+	switch c.Database {
+	case "postgres":
+		deps = append(deps, "github.com/lib/pq")
+	case "mysql":
+		deps = append(deps, "github.com/go-sql-driver/mysql")
+	case "sqlite":
+		deps = append(deps, "github.com/mattn/go-sqlite3")
+	case "badger":
+		deps = append(deps, "github.com/dgraph-io/badger/v4")
+	}
+
+	// ORM dependencies
+	switch c.ORM {
+	case "gorm":
+		deps = append(deps, "gorm.io/gorm")
+		switch c.Database {
+		case "postgres":
+			deps = append(deps, "gorm.io/driver/postgres")
+		case "mysql":
+			deps = append(deps, "gorm.io/driver/mysql")
+		case "sqlite":
+			deps = append(deps, "gorm.io/driver/sqlite")
+		}
+	case "ent":
+		deps = append(deps, "entgo.io/ent/dialect/sql")
+	case "pgx":
+		deps = append(deps, "github.com/jackc/pgx/v5")
+	}
+
+	// Feature dependencies
+	if c.Features.Config {
+		deps = append(deps, "github.com/joho/godotenv")
+	}
+	if c.Features.Logger {
+		deps = append(deps, "go.uber.org/zap", "gopkg.in/natefinch/lumberjack.v2")
+	}
+	if c.Features.Redis {
+		deps = append(deps, "github.com/go-redis/redis/v8")
+	}
+	if c.Features.MongoDB {
+		deps = append(deps, "go.mongodb.org/mongo-driver/mongo")
+	}
+	if c.Features.Swagger {
+		deps = append(deps, "github.com/gofiber/swagger", "github.com/swaggo/swag/cmd/swag")
+	}
+
+	// AI dependencies
+	if c.AI.OpenAI {
+		deps = append(deps, "github.com/sashabaranov/go-openai")
+	}
+	if c.AI.OpenRouter || c.AI.Claude {
+		// These use standard HTTP client, no additional deps needed
+	}
+
+	return deps
+}
+
+// Helper functions
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+} 
