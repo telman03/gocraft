@@ -8,7 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/telman03/ai-backend-generator/internal/auth"
+	"github.com/telman03/gocraft-backend/internal/auth"
 )
 
 // AuthError represents authentication-specific error codes

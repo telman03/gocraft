@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/monitoring"
+	"github.com/telman03/gocraft-backend/internal/monitoring"
 )
 
 // MetricsMiddleware creates a middleware that collects request metrics

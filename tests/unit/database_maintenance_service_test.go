@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/telman03/ai-backend-generator/internal/models"
-	"github.com/telman03/ai-backend-generator/internal/services"
+	"github.com/telman03/gocraft-backend/internal/models"
+	"github.com/telman03/gocraft-backend/internal/services"
 	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

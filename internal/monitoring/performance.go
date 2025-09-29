@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/telman03/ai-backend-generator/internal/logging"
+	"github.com/telman03/gocraft-backend/internal/logging"
 )
 
 // PerformanceMonitor tracks application performance metrics

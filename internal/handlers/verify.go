@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/builder"
-	"github.com/telman03/ai-backend-generator/internal/models"
-	"github.com/telman03/ai-backend-generator/internal/utils"
+	"github.com/telman03/gocraft-backend/internal/builder"
+	"github.com/telman03/gocraft-backend/internal/models"
+	"github.com/telman03/gocraft-backend/internal/utils"
 )
 
 // VerifyGeneration godoc

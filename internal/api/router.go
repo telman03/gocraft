@@ -4,10 +4,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/database"
-	"github.com/telman03/ai-backend-generator/internal/handlers"
-	"github.com/telman03/ai-backend-generator/internal/middleware"
-	"github.com/telman03/ai-backend-generator/internal/services"
+	"github.com/telman03/gocraft-backend/internal/database"
+	"github.com/telman03/gocraft-backend/internal/handlers"
+	"github.com/telman03/gocraft-backend/internal/middleware"
+	"github.com/telman03/gocraft-backend/internal/services"
 )
 
 func SetupRoutes(app *fiber.App, historyService *services.ProjectHistoryService, dbMaintenanceService *services.DatabaseMaintenanceService, fileCleanupService *services.FileCleanupService) {

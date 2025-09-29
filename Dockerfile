@@ -18,7 +18,7 @@ COPY . .
 
 # Build the application and place it in bin directory as expected by deployment
 RUN mkdir -p bin && \
-    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/ai-backend-generator ./cmd/gocraft/main.go
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/ai-backend-generator ./cmd/gocraft
 
 # Final stage
 FROM alpine:latest

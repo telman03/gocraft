@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/models"
-	"github.com/telman03/ai-backend-generator/internal/services"
+	"github.com/telman03/gocraft-backend/internal/models"
+	"github.com/telman03/gocraft-backend/internal/services"
 )
 
 // HistoryTrackingMiddleware captures generation requests and records them in history
