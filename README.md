@@ -457,6 +457,6 @@ If GoCraft helps you build better Go applications, please consider:
 
 **Built with ❤️ by the GoCraft team**
 
-[Website](https://gocraft.dev) • [Documentation](./docs/) • [API Reference](http://localhost:8080/swagger/) • [GitHub](https://github.com/telman03/gocraft-backend)
+[Website](https://gocraft.online) • [Documentation](./docs/) • [API Reference](http://localhost:8080/swagger/) • [GitHub](https://github.com/telman03/gocraft-backend)
 
 </div>
