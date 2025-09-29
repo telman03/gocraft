@@ -1,0 +1,244 @@
+package db
+
+import (
+	"database/sql"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"time"
+
+	_ "github.com/mattn/go-sqlite3"
+)
+
+var DB *sql.DB
+
+// Connect initializes SQLite connection
+func Connect() {
+	dbPath := os.Getenv("DATABASE_URL")
+	if dbPath == "" {
+		// Build path from environment variables or use default
+		dataDir := getEnv("DB_DATA_DIR", "./data")
+		dbName := getEnv("DB_NAME", "test-basic.db")
+		
+		// Create data directory if it doesn't exist
+		if err := os.MkdirAll(dataDir, 0755); err != nil {
+			log.Fatal("Failed to create data directory:", err)
+		}
+		
+		dbPath = filepath.Join(dataDir, dbName)
+	}
+
+	// Remove file:// prefix if present
+	if len(dbPath) > 7 && dbPath[:7] == "file://" {
+		dbPath = dbPath[7:]
+	}
+
+	var err error
+	DB, err = sql.Open("sqlite3", dbPath)
+	if err != nil {
+		log.Fatal("SQLite connection error:", err)
+	}
+
+	// Configure connection pool (SQLite has different limits)
+	DB.SetMaxOpenConns(1) // SQLite only supports one writer at a time
+	DB.SetMaxIdleConns(1)
+	DB.SetConnMaxLifetime(getEnvAsDuration("DB_CONN_MAX_LIFETIME", 300*time.Second))
+
+	// Enable foreign keys
+	_, err = DB.Exec("PRAGMA foreign_keys = ON")
+	if err != nil {
+		log.Fatal("Failed to enable foreign keys:", err)
+	}
+
+	// Enable WAL mode for better concurrency
+	_, err = DB.Exec("PRAGMA journal_mode = WAL")
+	if err != nil {
+		log.Fatal("Failed to enable WAL mode:", err)
+	}
+
+	// Set synchronous mode
+	_, err = DB.Exec("PRAGMA synchronous = NORMAL")
+	if err != nil {
+		log.Fatal("Failed to set synchronous mode:", err)
+	}
+
+	// Set cache size
+	_, err = DB.Exec("PRAGMA cache_size = 10000")
+	if err != nil {
+		log.Fatal("Failed to set cache size:", err)
+	}
+
+	// Test connection
+	err = DB.Ping()
+	if err != nil {
+		log.Fatal("SQLite ping failed:", err)
+	}
+
+	log.Printf("Connected to SQLite successfully: %s", dbPath)
+}
+
+// Close closes the database connection
+func Close() error {
+	if DB != nil {
+		return DB.Close()
+	}
+	return nil
+}
+
+// GetDB returns the database instance
+func GetDB() *sql.DB {
+	return DB
+}
+
+// BeginTransaction starts a new transaction
+func BeginTransaction() (*sql.Tx, error) {
+	return DB.Begin()
+}
+
+// ExecuteQuery executes a query and returns rows
+func ExecuteQuery(query string, args ...interface{}) (*sql.Rows, error) {
+	return DB.Query(query, args...)
+}
+
+// ExecuteQueryRow executes a query and returns a single row
+func ExecuteQueryRow(query string, args ...interface{}) *sql.Row {
+	return DB.QueryRow(query, args...)
+}
+
+// ExecuteExec executes a query that doesn't return rows
+func ExecuteExec(query string, args ...interface{}) (sql.Result, error) {
+	return DB.Exec(query, args...)
+}
+
+// CreateTables creates the initial database tables
+func CreateTables() error {
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			email TEXT UNIQUE NOT NULL,
+			password_hash TEXT NOT NULL,
+			first_name TEXT,
+			last_name TEXT,
+			role TEXT DEFAULT 'user',
+			is_active BOOLEAN DEFAULT 1,
+			email_verified BOOLEAN DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS sessions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			refresh_token TEXT NOT NULL,
+			expires_at DATETIME NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS profiles (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER UNIQUE NOT NULL,
+			avatar_url TEXT,
+			bio TEXT,
+			website TEXT,
+			location TEXT,
+			date_of_birth DATE,
+			phone TEXT,
+			preferences TEXT DEFAULT '{}',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS audit_logs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER,
+			action TEXT NOT NULL,
+			resource_type TEXT,
+			resource_id TEXT,
+			details TEXT,
+			ip_address TEXT,
+			user_agent TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+		)`,
+	}
+
+	for _, query := range queries {
+		_, err := DB.Exec(query)
+		if err != nil {
+			return fmt.Errorf("failed to create table: %w", err)
+		}
+	}
+
+	// Create indexes
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_refresh_token ON sessions(refresh_token)`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)`,
+	}
+
+	for _, index := range indexes {
+		_, err := DB.Exec(index)
+		if err != nil {
+			return fmt.Errorf("failed to create index: %w", err)
+		}
+	}
+
+	log.Println("Database tables created successfully")
+	return nil
+}
+
+// Backup creates a backup of the database
+func Backup(backupPath string) error {
+	// For SQLite, we can simply copy the file
+	sourcePath := DB.Stats().OpenConnections // This is a workaround to get the path
+	if sourcePath == 0 {
+		sourcePath = "./data/test-basic.db"
+	}
+	
+	// Create backup directory if it doesn't exist
+	backupDir := filepath.Dir(backupPath)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		return fmt.Errorf("failed to create backup directory: %w", err)
+	}
+
+	// Use SQLite backup API for proper backup
+	backupDB, err := sql.Open("sqlite3", backupPath)
+	if err != nil {
+		return fmt.Errorf("failed to open backup database: %w", err)
+	}
+	defer backupDB.Close()
+
+	// Perform backup
+	_, err = DB.Exec("VACUUM INTO ?", backupPath)
+	if err != nil {
+		return fmt.Errorf("failed to backup database: %w", err)
+	}
+
+	log.Printf("Database backed up to: %s", backupPath)
+	return nil
+}
+
+// Helper functions
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func getEnvAsDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return fallback
+} 

@@ -1,0 +1,152 @@
+package mongodb
+
+import (
+	"context"
+	"log"
+	"os"
+	"time"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+)
+
+var (
+	Client   *mongo.Client
+	Database *mongo.Database
+)
+
+// Config holds MongoDB configuration
+type Config struct {
+	URI      string
+	Database string
+	Username string
+	Password string
+}
+
+// Connect initializes MongoDB connection
+func Connect() {
+	config := getConfig()
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Set client options
+	clientOptions := options.Client().ApplyURI(config.URI)
+	
+	// Add authentication if credentials are provided
+	if config.Username != "" && config.Password != "" {
+		clientOptions.SetAuth(options.Credential{
+			Username: config.Username,
+			Password: config.Password,
+		})
+	}
+
+	// Connect to MongoDB
+	var err error
+	Client, err = mongo.Connect(ctx, clientOptions)
+	if err != nil {
+		log.Fatal("MongoDB connection failed:", err)
+	}
+
+	// Ping the database
+	err = Client.Ping(ctx, readpref.Primary())
+	if err != nil {
+		log.Fatal("MongoDB ping failed:", err)
+	}
+
+	// Set database
+	Database = Client.Database(config.Database)
+
+	log.Println("Connected to MongoDB successfully")
+}
+
+// getConfig returns MongoDB configuration from environment
+func getConfig() Config {
+	return Config{
+		URI:      getEnv("MONGODB_URL", "mongodb://localhost:27017"),
+		Database: getEnv("MONGODB_DATABASE", "test-minimal"),
+		Username: getEnv("MONGODB_USERNAME", ""),
+		Password: getEnv("MONGODB_PASSWORD", ""),
+	}
+}
+
+// getEnv gets environment variable with fallback
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+// GetCollection returns a MongoDB collection
+func GetCollection(name string) *mongo.Collection {
+	return Database.Collection(name)
+}
+
+// Close closes MongoDB connection
+func Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return Client.Disconnect(ctx)
+}
+
+// Ping checks database connectivity
+func Ping() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return Client.Ping(ctx, readpref.Primary())
+}
+
+// ListCollections lists all collections in the database
+func ListCollections() ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	return Database.ListCollectionNames(ctx, map[string]interface{}{})
+}
+
+// DropCollection drops a collection
+func DropCollection(name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	return Database.Collection(name).Drop(ctx)
+}
+
+// CreateIndex creates an index on a collection
+func CreateIndex(collectionName string, keys interface{}, options *options.IndexOptions) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	_, err := Database.Collection(collectionName).Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    keys,
+		Options: options,
+	})
+	return err
+}
+
+// ListIndexes lists all indexes on a collection
+func ListIndexes(collectionName string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	cursor, err := Database.Collection(collectionName).Indexes().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var indexes []string
+	for cursor.Next(ctx) {
+		var index map[string]interface{}
+		if err := cursor.Decode(&index); err != nil {
+			return nil, err
+		}
+		if name, ok := index["name"].(string); ok {
+			indexes = append(indexes, name)
+		}
+	}
+	
+	return indexes, nil
+} 

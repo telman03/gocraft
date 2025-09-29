@@ -1,0 +1,165 @@
+package main
+
+import (
+	"log"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/gofiber/fiber/v2/middleware/timeout"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+	"test-full-stack/auth"
+	"test-full-stack/db"
+	"test-full-stack/router"
+	"test-full-stack/config"
+	"test-full-stack/logger"
+)
+
+func main() {
+	// Initialize logger
+	logger.Init()
+
+	// Load configuration
+	cfg := config.Load()
+
+	// Create Fiber app with configuration
+	app := fiber.New(fiber.Config{
+		AppName:      "test-full-stack",
+		ServerHeader: "test-full-stack/1.0.0",
+		ErrorHandler: customErrorHandler,
+		ReadTimeout:  getEnvAsDuration("READ_TIMEOUT", 10*time.Second),
+		WriteTimeout: getEnvAsDuration("WRITE_TIMEOUT", 10*time.Second),
+		IdleTimeout:  getEnvAsDuration("IDLE_TIMEOUT", 120*time.Second),
+		BodyLimit:    getEnvAsInt("BODY_LIMIT", 4*1024*1024), // 4MB default
+	})
+
+	// Add middleware
+	setupMiddleware(app)
+
+	// Connect to database
+	db.Connect()
+
+	// Setup routes
+	router.SetupRoutes(app)
+
+	// Health check endpoint
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"status":    "healthy",
+			"service":   "test-full-stack",
+			"version":   "1.0.0",
+			"timestamp": time.Now().UTC(),
+		})
+	})
+
+	// Get port from environment or use default
+	port := getEnv("APP_PORT", "8080")
+	host := getEnv("APP_HOST", "0.0.0.0")
+
+	// Start server
+	log.Printf("Server starting on %s:%s", host, port)
+	if err := app.Listen(host + ":" + port); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
+}
+
+// setupMiddleware configures all middleware for the application
+func setupMiddleware(app *fiber.App) {
+	// Request ID for tracing
+	app.Use(requestid.New())
+
+	// CORS middleware
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     getEnv("CORS_ALLOW_ORIGINS", "*"),
+		AllowMethods:     getEnv("CORS_ALLOW_METHODS", "GET,POST,PUT,DELETE,OPTIONS"),
+		AllowHeaders:     getEnv("CORS_ALLOW_HEADERS", "Origin,Content-Type,Accept,Authorization,X-Requested-With"),
+		ExposeHeaders:    getEnv("CORS_EXPOSE_HEADERS", "Content-Length"),
+		AllowCredentials: getEnvAsBool("CORS_ALLOW_CREDENTIALS", true),
+		MaxAge:           getEnvAsInt("CORS_MAX_AGE", 43200), // 12 hours
+	}))
+
+	// Request timeout
+	app.Use(timeout.New(func(c *fiber.Ctx) error {
+		return c.Next()
+	}, getEnvAsDuration("REQUEST_TIMEOUT", 30*time.Second)))
+
+	// Logging middleware
+	app.Use(logger.New(logger.Config{
+		Format:     getEnv("LOG_FORMAT", "[${time}] ${status} - ${latency} ${method} ${path}\n"),
+		TimeFormat: "2006-01-02 15:04:05",
+		TimeZone:   "UTC",
+		Done: func(c *fiber.Ctx, logString []byte) {
+			logger.LogRequest(
+				c.Method(),
+				c.Path(),
+				c.IP(),
+				c.Context().Time().Sub(c.Context().ConnTime()),
+				c.Response().StatusCode(),
+			)
+		},
+	}))
+
+	// Recovery middleware
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: getEnvAsBool("ENABLE_STACK_TRACE", true),
+	}))
+}
+
+// customErrorHandler handles application errors
+func customErrorHandler(c *fiber.Ctx, err error) error {
+	// Default error code
+	code := fiber.StatusInternalServerError
+
+	// Check if it's a Fiber error
+	if e, ok := err.(*fiber.Error); ok {
+		code = e.Code
+	}
+
+	// Log error
+	logger.LogError(err, c.Method(), c.Path(), c.IP())
+
+	// Return error response
+	return c.Status(code).JSON(fiber.Map{
+		"error":     true,
+		"message":   err.Error(),
+		"timestamp": time.Now().UTC(),
+	})
+}
+
+// Helper functions
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func getEnvAsBool(key string, fallback bool) bool {
+	if value := os.Getenv(key); value != "" {
+		return value == "true" || value == "1"
+	}
+	return fallback
+}
+
+func getEnvAsInt(key string, fallback int) int {
+	if value := os.Getenv(key); value != "" {
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
+	}
+	return fallback
+}
+
+func getEnvAsDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return fallback
+}

@@ -466,9 +466,7 @@ func (o *OAuth2Service) parseOAuthJWT(tokenString string) (*OAuth2Claims, error)
 // generateRandomState generates a random state parameter for OAuth2
 func generateRandomState() string {
 	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		panic("failed to generate random state")
-	}
+	rand.Read(b)
 	return fmt.Sprintf("%x", b)
 }
 

@@ -1,0 +1,567 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	// Import generated protobuf code
+	pb "github.com/your-org/test-minimal/proto"
+)
+
+// GRPCServer implements the gRPC service
+type GRPCServer struct {
+	pb.UnimplementedUserServiceServer
+	pb.UnimplementedAuthServiceServer
+	db Database
+}
+
+// NewGRPCServer creates a new gRPC server
+func NewGRPCServer(db Database) *GRPCServer {
+	return &GRPCServer{
+		db: db,
+	}
+}
+
+// StartGRPCServer starts the gRPC server
+func StartGRPCServer(port string, db Database) error {
+	lis, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		return fmt.Errorf("failed to listen: %v", err)
+	}
+
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(GRPCLoggingInterceptor),
+		grpc.StreamInterceptor(GRPCStreamLoggingInterceptor),
+	)
+
+	grpcServer := NewGRPCServer(db)
+	pb.RegisterUserServiceServer(server, grpcServer)
+	pb.RegisterAuthServiceServer(server, grpcServer)
+
+	fmt.Printf("gRPC server listening on port %s\n", port)
+	return server.Serve(lis)
+}
+
+// StartGRPCGateway starts the gRPC-Gateway for REST API
+func StartGRPCGateway(grpcPort, httpPort string) error {
+	// Create gRPC client connection
+	conn, err := grpc.Dial("localhost:"+grpcPort, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to connect to gRPC server: %v", err)
+	}
+	defer conn.Close()
+
+	// Create HTTP server with gRPC-Gateway mux
+	mux := http.NewServeMux()
+	
+	// Register gRPC-Gateway handlers
+	pb.RegisterUserServiceHandlerServer(context.Background(), mux, NewGRPCServer(nil))
+	pb.RegisterAuthServiceHandlerServer(context.Background(), mux, NewGRPCServer(nil))
+
+	// Add CORS middleware
+	handler := corsMiddleware(mux)
+
+	fmt.Printf("gRPC-Gateway server listening on port %s\n", httpPort)
+	return http.ListenAndServe(":"+httpPort, handler)
+}
+
+// UserService implementations
+
+// CreateUser creates a new user
+func (s *GRPCServer) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
+	// Validate request
+	if req.Email == "" || req.Name == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "email and name are required")
+	}
+
+	// Check if user already exists
+	existingUser, err := s.db.GetUserByEmail(req.Email)
+	if err == nil && existingUser != nil {
+		return nil, status.Errorf(codes.AlreadyExists, "user with email %s already exists", req.Email)
+	}
+
+	// Create user
+	user := &User{
+		Email:     req.Email,
+		Name:      req.Name,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err = s.db.CreateUser(user)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to create user: %v", err)
+	}
+
+	// Convert to protobuf response
+	response := &pb.CreateUserResponse{
+		User: &pb.User{
+			Id:        int64(user.ID),
+			Email:     user.Email,
+			Name:      user.Name,
+			CreatedAt: timestamppb.New(user.CreatedAt),
+			UpdatedAt: timestamppb.New(user.UpdatedAt),
+		},
+	}
+
+	return response, nil
+}
+
+// GetUser retrieves a user by ID
+func (s *GRPCServer) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
+	// Validate request
+	if req.Id <= 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid user ID")
+	}
+
+	// Get user from database
+	user, err := s.db.GetUserByID(int(req.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "user not found: %v", err)
+	}
+
+	// Convert to protobuf response
+	response := &pb.GetUserResponse{
+		User: &pb.User{
+			Id:        int64(user.ID),
+			Email:     user.Email,
+			Name:      user.Name,
+			CreatedAt: timestamppb.New(user.CreatedAt),
+			UpdatedAt: timestamppb.New(user.UpdatedAt),
+		},
+	}
+
+	return response, nil
+}
+
+// UpdateUser updates an existing user
+func (s *GRPCServer) UpdateUser(ctx context.Context, req *pb.UpdateUserRequest) (*pb.UpdateUserResponse, error) {
+	// Validate request
+	if req.Id <= 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid user ID")
+	}
+
+	// Get existing user
+	existingUser, err := s.db.GetUserByID(int(req.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "user not found: %v", err)
+	}
+
+	// Update fields if provided
+	if req.Name != "" {
+		existingUser.Name = req.Name
+	}
+	if req.Email != "" {
+		existingUser.Email = req.Email
+	}
+	existingUser.UpdatedAt = time.Now()
+
+	// Save to database
+	err = s.db.UpdateUser(existingUser)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to update user: %v", err)
+	}
+
+	// Convert to protobuf response
+	response := &pb.UpdateUserResponse{
+		User: &pb.User{
+			Id:        int64(existingUser.ID),
+			Email:     existingUser.Email,
+			Name:      existingUser.Name,
+			CreatedAt: timestamppb.New(existingUser.CreatedAt),
+			UpdatedAt: timestamppb.New(existingUser.UpdatedAt),
+		},
+	}
+
+	return response, nil
+}
+
+// DeleteUser deletes a user
+func (s *GRPCServer) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
+	// Validate request
+	if req.Id <= 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid user ID")
+	}
+
+	// Check if user exists
+	_, err := s.db.GetUserByID(int(req.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "user not found: %v", err)
+	}
+
+	// Delete user
+	err = s.db.DeleteUser(int(req.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to delete user: %v", err)
+	}
+
+	response := &pb.DeleteUserResponse{
+		Success: true,
+		Message: "User deleted successfully",
+	}
+
+	return response, nil
+}
+
+// ListUsers retrieves a list of users with pagination
+func (s *GRPCServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
+	// Set default pagination values
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset := int(req.Offset)
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Get users from database
+	users, err := s.db.ListUsers(limit, offset)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to list users: %v", err)
+	}
+
+	// Convert to protobuf response
+	var pbUsers []*pb.User
+	for _, user := range users {
+		pbUser := &pb.User{
+			Id:        int64(user.ID),
+			Email:     user.Email,
+			Name:      user.Name,
+			CreatedAt: timestamppb.New(user.CreatedAt),
+			UpdatedAt: timestamppb.New(user.UpdatedAt),
+		}
+		pbUsers = append(pbUsers, pbUser)
+	}
+
+	response := &pb.ListUsersResponse{
+		Users: pbUsers,
+		Total: int64(len(pbUsers)),
+		Limit: int64(limit),
+		Offset: int64(offset),
+	}
+
+	return response, nil
+}
+
+// AuthService implementations
+
+// Login authenticates a user
+func (s *GRPCServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+	// Validate request
+	if req.Email == "" || req.Password == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "email and password are required")
+	}
+
+	// Authenticate user
+	user, err := s.db.AuthenticateUser(req.Email, req.Password)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid credentials: %v", err)
+	}
+
+	// Generate JWT token
+	token, err := generateJWT(user)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate token: %v", err)
+	}
+
+	// Generate refresh token
+	refreshToken, err := generateRefreshToken(user)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate refresh token: %v", err)
+	}
+
+	response := &pb.LoginResponse{
+		Token:        token,
+		RefreshToken: refreshToken,
+		User: &pb.User{
+			Id:        int64(user.ID),
+			Email:     user.Email,
+			Name:      user.Name,
+			CreatedAt: timestamppb.New(user.CreatedAt),
+			UpdatedAt: timestamppb.New(user.UpdatedAt),
+		},
+		ExpiresIn: 3600, // 1 hour
+	}
+
+	return response, nil
+}
+
+// Register registers a new user
+func (s *GRPCServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+	// Validate request
+	if req.Email == "" || req.Password == "" || req.Name == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "email, password, and name are required")
+	}
+
+	// Check if user already exists
+	existingUser, err := s.db.GetUserByEmail(req.Email)
+	if err == nil && existingUser != nil {
+		return nil, status.Errorf(codes.AlreadyExists, "user with email %s already exists", req.Email)
+	}
+
+	// Hash password
+	hashedPassword, err := hashPassword(req.Password)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to hash password: %v", err)
+	}
+
+	// Create user
+	user := &User{
+		Email:     req.Email,
+		Name:      req.Name,
+		Password:  hashedPassword,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err = s.db.CreateUser(user)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to create user: %v", err)
+	}
+
+	// Generate JWT token
+	token, err := generateJWT(user)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate token: %v", err)
+	}
+
+	// Generate refresh token
+	refreshToken, err := generateRefreshToken(user)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate refresh token: %v", err)
+	}
+
+	response := &pb.RegisterResponse{
+		Token:        token,
+		RefreshToken: refreshToken,
+		User: &pb.User{
+			Id:        int64(user.ID),
+			Email:     user.Email,
+			Name:      user.Name,
+			CreatedAt: timestamppb.New(user.CreatedAt),
+			UpdatedAt: timestamppb.New(user.UpdatedAt),
+		},
+		ExpiresIn: 3600, // 1 hour
+	}
+
+	return response, nil
+}
+
+// RefreshToken refreshes an access token
+func (s *GRPCServer) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+	// Validate request
+	if req.RefreshToken == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "refresh token is required")
+	}
+
+	// Validate refresh token and get user
+	user, err := validateRefreshToken(req.RefreshToken)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid refresh token: %v", err)
+	}
+
+	// Generate new access token
+	token, err := generateJWT(user)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate token: %v", err)
+	}
+
+	// Generate new refresh token
+	refreshToken, err := generateRefreshToken(user)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate refresh token: %v", err)
+	}
+
+	response := &pb.RefreshTokenResponse{
+		Token:        token,
+		RefreshToken: refreshToken,
+		ExpiresIn:    3600, // 1 hour
+	}
+
+	return response, nil
+}
+
+// ValidateToken validates an access token
+func (s *GRPCServer) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
+	// Validate request
+	if req.Token == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "token is required")
+	}
+
+	// Validate token and get claims
+	claims, err := validateJWT(req.Token)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid token: %v", err)
+	}
+
+	// Get user from database
+	user, err := s.db.GetUserByID(claims.UserID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "user not found: %v", err)
+	}
+
+	response := &pb.ValidateTokenResponse{
+		Valid: true,
+		User: &pb.User{
+			Id:        int64(user.ID),
+			Email:     user.Email,
+			Name:      user.Name,
+			CreatedAt: timestamppb.New(user.CreatedAt),
+			UpdatedAt: timestamppb.New(user.UpdatedAt),
+		},
+	}
+
+	return response, nil
+}
+
+// gRPC Interceptors
+
+// GRPCLoggingInterceptor logs gRPC unary requests
+func GRPCLoggingInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	start := time.Now()
+	
+	// Log request
+	fmt.Printf("gRPC Request: %s\n", info.FullMethod)
+	
+	// Call handler
+	resp, err := handler(ctx, req)
+	
+	// Log response
+	duration := time.Since(start)
+	if err != nil {
+		fmt.Printf("gRPC Error: %s - %v (duration: %v)\n", info.FullMethod, err, duration)
+	} else {
+		fmt.Printf("gRPC Success: %s (duration: %v)\n", info.FullMethod, duration)
+	}
+	
+	return resp, err
+}
+
+// GRPCStreamLoggingInterceptor logs gRPC stream requests
+func GRPCStreamLoggingInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	start := time.Now()
+	
+	// Log request
+	fmt.Printf("gRPC Stream Request: %s\n", info.FullMethod)
+	
+	// Call handler
+	err := handler(srv, ss)
+	
+	// Log response
+	duration := time.Since(start)
+	if err != nil {
+		fmt.Printf("gRPC Stream Error: %s - %v (duration: %v)\n", info.FullMethod, err, duration)
+	} else {
+		fmt.Printf("gRPC Stream Success: %s (duration: %v)\n", info.FullMethod, duration)
+	}
+	
+	return err
+}
+
+// CORS middleware for gRPC-Gateway
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Database interface for gRPC operations
+type Database interface {
+	CreateUser(user *User) error
+	GetUserByID(id int) (*User, error)
+	GetUserByEmail(email string) (*User, error)
+	UpdateUser(user *User) error
+	DeleteUser(id int) error
+	ListUsers(limit, offset int) ([]*User, error)
+	AuthenticateUser(email, password string) (*User, error)
+}
+
+// User model
+type User struct {
+	ID        int       `json:"id" db:"id"`
+	Email     string    `json:"email" db:"email"`
+	Name      string    `json:"name" db:"name"`
+	Password  string    `json:"-" db:"password"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// JWT and authentication helpers
+func generateJWT(user *User) (string, error) {
+	// Implementation for JWT generation
+	return "jwt-token", nil
+}
+
+func generateRefreshToken(user *User) (string, error) {
+	// Implementation for refresh token generation
+	return "refresh-token", nil
+}
+
+func validateJWT(tokenString string) (*Claims, error) {
+	// Implementation for JWT validation
+	return &Claims{UserID: 1}, nil
+}
+
+func validateRefreshToken(refreshToken string) (*User, error) {
+	// Implementation for refresh token validation
+	return &User{ID: 1, Email: "test@example.com"}, nil
+}
+
+func hashPassword(password string) (string, error) {
+	// Implementation for password hashing
+	return "hashed-password", nil
+}
+
+// Claims for JWT
+type Claims struct {
+	UserID int    `json:"user_id"`
+	Email  string `json:"email"`
+}
+
+// Main function to start both gRPC and gRPC-Gateway servers
+func main() {
+	// Initialize database
+	db := initializeDatabase()
+	
+	// Start gRPC server in goroutine
+	go func() {
+		if err := StartGRPCServer("9090", db); err != nil {
+			fmt.Printf("Failed to start gRPC server: %v\n", err)
+		}
+	}()
+	
+	// Start gRPC-Gateway server
+	if err := StartGRPCGateway("9090", "8080"); err != nil {
+		fmt.Printf("Failed to start gRPC-Gateway server: %v\n", err)
+	}
+}
+
+func initializeDatabase() Database {
+	// Implementation for database initialization
+	return nil
+} 

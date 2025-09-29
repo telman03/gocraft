@@ -1,0 +1,32 @@
+package main
+
+import (
+	"log"
+	"os"
+	
+	"github.com/gin-gonic/gin"
+	
+	
+	"test-minimal/internal/db"
+	"test-minimal/internal/router"
+	
+)
+
+func main() {
+	
+	db.Connect()
+
+	
+	// Gin framework
+	r := gin.Default()
+	router.SetupRoutes(r)
+	
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	
+	log.Printf("Server starting on port %s", port)
+	log.Fatal(r.Run(":" + port))
+	
+}

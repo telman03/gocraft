@@ -1,0 +1,469 @@
+syntax = "proto3";
+
+package test-basic;
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+
+option go_package = "github.com/your-org/test-basic/proto";
+
+// UserService provides user management operations
+service UserService {
+  // CreateUser creates a new user
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
+    option (google.api.http) = {
+      post: "/v1/users"
+      body: "*"
+    };
+  }
+
+  // GetUser retrieves a user by ID
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{id}"
+    };
+  }
+
+  // UpdateUser updates an existing user
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {
+    option (google.api.http) = {
+      put: "/v1/users/{id}"
+      body: "*"
+    };
+  }
+
+  // DeleteUser deletes a user
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
+    option (google.api.http) = {
+      delete: "/v1/users/{id}"
+    };
+  }
+
+  // ListUsers retrieves a list of users with pagination
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+    option (google.api.http) = {
+      get: "/v1/users"
+    };
+  }
+}
+
+// AuthService provides authentication operations
+service AuthService {
+  // Login authenticates a user
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/login"
+      body: "*"
+    };
+  }
+
+  // Register registers a new user
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/register"
+      body: "*"
+    };
+  }
+
+  // RefreshToken refreshes an access token
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/refresh"
+      body: "*"
+    };
+  }
+
+  // ValidateToken validates an access token
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/validate"
+      body: "*"
+    };
+  }
+}
+
+// User represents a user in the system
+message User {
+  int64 id = 1;
+  string email = 2;
+  string name = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// CreateUserRequest represents a request to create a user
+message CreateUserRequest {
+  string email = 1;
+  string name = 2;
+  string password = 3;
+}
+
+// CreateUserResponse represents a response to creating a user
+message CreateUserResponse {
+  User user = 1;
+}
+
+// GetUserRequest represents a request to get a user
+message GetUserRequest {
+  int64 id = 1;
+}
+
+// GetUserResponse represents a response to getting a user
+message GetUserResponse {
+  User user = 1;
+}
+
+// UpdateUserRequest represents a request to update a user
+message UpdateUserRequest {
+  int64 id = 1;
+  string email = 2;
+  string name = 3;
+}
+
+// UpdateUserResponse represents a response to updating a user
+message UpdateUserResponse {
+  User user = 1;
+}
+
+// DeleteUserRequest represents a request to delete a user
+message DeleteUserRequest {
+  int64 id = 1;
+}
+
+// DeleteUserResponse represents a response to deleting a user
+message DeleteUserResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ListUsersRequest represents a request to list users
+message ListUsersRequest {
+  int64 limit = 1;
+  int64 offset = 2;
+}
+
+// ListUsersResponse represents a response to listing users
+message ListUsersResponse {
+  repeated User users = 1;
+  int64 total = 2;
+  int64 limit = 3;
+  int64 offset = 4;
+}
+
+// LoginRequest represents a login request
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+// LoginResponse represents a login response
+message LoginResponse {
+  string token = 1;
+  string refresh_token = 2;
+  User user = 3;
+  int64 expires_in = 4;
+}
+
+// RegisterRequest represents a registration request
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  string name = 3;
+}
+
+// RegisterResponse represents a registration response
+message RegisterResponse {
+  string token = 1;
+  string refresh_token = 2;
+  User user = 3;
+  int64 expires_in = 4;
+}
+
+// RefreshTokenRequest represents a token refresh request
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+// RefreshTokenResponse represents a token refresh response
+message RefreshTokenResponse {
+  string token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;
+}
+
+// ValidateTokenRequest represents a token validation request
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+// ValidateTokenResponse represents a token validation response
+message ValidateTokenResponse {
+  bool valid = 1;
+  User user = 2;
+}
+
+// Error represents an error response
+message Error {
+  string code = 1;
+  string message = 2;
+  string details = 3;
+}
+
+// HealthCheckRequest represents a health check request
+message HealthCheckRequest {
+  string service = 1;
+}
+
+// HealthCheckResponse represents a health check response
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;
+  }
+  ServingStatus status = 1;
+  string message = 2;
+}
+
+// Health service for health checks
+service Health {
+  // Check performs a health check
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse) {
+    option (google.api.http) = {
+      get: "/v1/health"
+    };
+  }
+
+  // Watch performs a streaming health check
+  rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse) {
+    option (google.api.http) = {
+      get: "/v1/health/watch"
+    };
+  }
+}
+
+// ChatService provides real-time chat functionality
+service ChatService {
+  // SendMessage sends a chat message
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {
+    option (google.api.http) = {
+      post: "/v1/chat/messages"
+      body: "*"
+    };
+  }
+
+  // GetMessages retrieves chat messages
+  rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse) {
+    option (google.api.http) = {
+      get: "/v1/chat/messages"
+    };
+  }
+
+  // StreamMessages streams chat messages in real-time
+  rpc StreamMessages(StreamMessagesRequest) returns (stream ChatMessage) {
+    option (google.api.http) = {
+      get: "/v1/chat/messages/stream"
+    };
+  }
+}
+
+// ChatMessage represents a chat message
+message ChatMessage {
+  int64 id = 1;
+  int64 user_id = 2;
+  string content = 3;
+  string message_type = 4; // text, image, file, etc.
+  google.protobuf.Timestamp created_at = 5;
+  User user = 6;
+}
+
+// SendMessageRequest represents a request to send a message
+message SendMessageRequest {
+  string content = 1;
+  string message_type = 2;
+  int64 room_id = 3;
+}
+
+// SendMessageResponse represents a response to sending a message
+message SendMessageResponse {
+  ChatMessage message = 1;
+}
+
+// GetMessagesRequest represents a request to get messages
+message GetMessagesRequest {
+  int64 room_id = 1;
+  int64 limit = 2;
+  int64 offset = 3;
+}
+
+// GetMessagesResponse represents a response to getting messages
+message GetMessagesResponse {
+  repeated ChatMessage messages = 1;
+  int64 total = 2;
+}
+
+// StreamMessagesRequest represents a request to stream messages
+message StreamMessagesRequest {
+  int64 room_id = 1;
+}
+
+// NotificationService provides notification functionality
+service NotificationService {
+  // SendNotification sends a notification
+  rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse) {
+    option (google.api.http) = {
+      post: "/v1/notifications"
+      body: "*"
+    };
+  }
+
+  // GetNotifications retrieves notifications
+  rpc GetNotifications(GetNotificationsRequest) returns (GetNotificationsResponse) {
+    option (google.api.http) = {
+      get: "/v1/notifications"
+    };
+  }
+
+  // StreamNotifications streams notifications in real-time
+  rpc StreamNotifications(StreamNotificationsRequest) returns (stream Notification) {
+    option (google.api.http) = {
+      get: "/v1/notifications/stream"
+    };
+  }
+}
+
+// Notification represents a notification
+message Notification {
+  int64 id = 1;
+  int64 user_id = 2;
+  string title = 3;
+  string message = 4;
+  string type = 5; // info, warning, error, success
+  bool read = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+// SendNotificationRequest represents a request to send a notification
+message SendNotificationRequest {
+  int64 user_id = 1;
+  string title = 2;
+  string message = 3;
+  string type = 4;
+}
+
+// SendNotificationResponse represents a response to sending a notification
+message SendNotificationResponse {
+  Notification notification = 1;
+}
+
+// GetNotificationsRequest represents a request to get notifications
+message GetNotificationsRequest {
+  int64 user_id = 1;
+  int64 limit = 2;
+  int64 offset = 3;
+  bool unread_only = 4;
+}
+
+// GetNotificationsResponse represents a response to getting notifications
+message GetNotificationsResponse {
+  repeated Notification notifications = 1;
+  int64 total = 2;
+  int64 unread_count = 3;
+}
+
+// StreamNotificationsRequest represents a request to stream notifications
+message StreamNotificationsRequest {
+  int64 user_id = 1;
+}
+
+// FileService provides file management functionality
+service FileService {
+  // UploadFile uploads a file
+  rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse) {
+    option (google.api.http) = {
+      post: "/v1/files/upload"
+      body: "*"
+    };
+  }
+
+  // DownloadFile downloads a file
+  rpc DownloadFile(DownloadFileRequest) returns (stream DownloadFileResponse) {
+    option (google.api.http) = {
+      get: "/v1/files/{file_id}/download"
+    };
+  }
+
+  // GetFileInfo retrieves file information
+  rpc GetFileInfo(GetFileInfoRequest) returns (GetFileInfoResponse) {
+    option (google.api.http) = {
+      get: "/v1/files/{file_id}"
+    };
+  }
+
+  // DeleteFile deletes a file
+  rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse) {
+    option (google.api.http) = {
+      delete: "/v1/files/{file_id}"
+    };
+  }
+}
+
+// FileInfo represents file information
+message FileInfo {
+  string file_id = 1;
+  string filename = 2;
+  string content_type = 3;
+  int64 size = 4;
+  string url = 5;
+  google.protobuf.Timestamp created_at = 6;
+  int64 user_id = 7;
+}
+
+// UploadFileRequest represents a request to upload a file
+message UploadFileRequest {
+  oneof data {
+    FileInfo info = 1;
+    bytes chunk = 2;
+  }
+}
+
+// UploadFileResponse represents a response to uploading a file
+message UploadFileResponse {
+  FileInfo file = 1;
+  string message = 2;
+}
+
+// DownloadFileRequest represents a request to download a file
+message DownloadFileRequest {
+  string file_id = 1;
+}
+
+// DownloadFileResponse represents a response to downloading a file
+message DownloadFileResponse {
+  oneof data {
+    FileInfo info = 1;
+    bytes chunk = 2;
+  }
+}
+
+// GetFileInfoRequest represents a request to get file information
+message GetFileInfoRequest {
+  string file_id = 1;
+}
+
+// GetFileInfoResponse represents a response to getting file information
+message GetFileInfoResponse {
+  FileInfo file = 1;
+}
+
+// DeleteFileRequest represents a request to delete a file
+message DeleteFileRequest {
+  string file_id = 1;
+}
+
+// DeleteFileResponse represents a response to deleting a file
+message DeleteFileResponse {
+  bool success = 1;
+  string message = 2;
+} 

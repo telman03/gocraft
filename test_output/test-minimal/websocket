@@ -599,9 +599,7 @@ func (cs *NotificationService) MarkNotificationAsRead(notificationID int) error 
 
 func generateClientID() string {
 	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		panic("failed to generate client ID")
-	}
+	rand.Read(b)
 	return fmt.Sprintf("client_%x", b)
 }
 

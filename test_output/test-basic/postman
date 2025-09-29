@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "{{.ProjectName}} API Collection",
-    "description": "API collection for {{.ProjectName}}",
+    "name": "test-basic API Collection",
+    "description": "API collection for test-basic",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -33,8 +33,8 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{`{{base_url}}`}}/health",
-          "host": ["{{`{{base_url}}`}}"],
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
           "path": ["health"]
         }
       }
@@ -45,13 +45,13 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{`{{base_url}}`}}/swagger/index.html",
-          "host": ["{{`{{base_url}}`}}"],
+          "raw": "{{base_url}}/swagger/index.html",
+          "host": ["{{base_url}}"],
           "path": ["swagger", "index.html"]
         }
       }
     }
-    {{if .Auth}},
+    ,
     {
       "name": "Authentication",
       "item": [
@@ -70,8 +70,8 @@
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
-              "raw": "{{`{{base_url}}`}}/auth/login",
-              "host": ["{{`{{base_url}}`}}"],
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
               "path": ["auth", "login"]
             }
           }
@@ -91,14 +91,14 @@
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"John Doe\"\n}"
             },
             "url": {
-              "raw": "{{`{{base_url}}`}}/auth/register",
-              "host": ["{{`{{base_url}}`}}"],
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
               "path": ["auth", "register"]
             }
           }
         }
       ]
     }
-    {{end}}
+    
   ]
 } 

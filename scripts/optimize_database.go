@@ -1,3 +1,6 @@
+//go:build ignore
+// +build ignore
+
 package main
 
 import (
@@ -42,7 +45,7 @@ func main() {
 
 	for i, query := range queries {
 		fmt.Printf("Executing optimization %d/%d...\n", i+1, len(queries))
-		
+
 		if err := database.DB.Exec(query).Error; err != nil {
 			log.Printf("Warning: Failed to execute query: %v\nQuery: %s", err, query)
 		} else {

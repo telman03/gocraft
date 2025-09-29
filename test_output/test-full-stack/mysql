@@ -1,0 +1,109 @@
+package db
+
+import (
+	"database/sql"
+	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+)
+
+var DB *sql.DB
+
+// Connect initializes MySQL connection
+func Connect() {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		// Build DSN from individual environment variables
+		host := getEnv("DB_HOST", "localhost")
+		port := getEnv("DB_PORT", "3306")
+		user := getEnv("DB_USER", "root")
+		password := getEnv("DB_PASSWORD", "")
+		database := getEnv("DB_NAME", "test-full-stack")
+		
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+			user, password, host, port, database)
+	}
+
+	var err error
+	DB, err = sql.Open("mysql", dsn)
+	if err != nil {
+		log.Fatal("MySQL connection error:", err)
+	}
+
+	// Configure connection pool
+	DB.SetMaxOpenConns(getEnvAsInt("DB_MAX_OPEN_CONNS", 25))
+	DB.SetMaxIdleConns(getEnvAsInt("DB_MAX_IDLE_CONNS", 25))
+	DB.SetConnMaxLifetime(getEnvAsDuration("DB_CONN_MAX_LIFETIME", 300*time.Second))
+
+	// Test connection
+	err = DB.Ping()
+	if err != nil {
+		log.Fatal("MySQL ping failed:", err)
+	}
+
+	log.Println("Connected to MySQL successfully")
+}
+
+// Close closes the database connection
+func Close() error {
+	if DB != nil {
+		return DB.Close()
+	}
+	return nil
+}
+
+// GetDB returns the database instance
+func GetDB() *sql.DB {
+	return DB
+}
+
+// BeginTransaction starts a new transaction
+func BeginTransaction() (*sql.Tx, error) {
+	return DB.Begin()
+}
+
+// ExecuteQuery executes a query and returns rows
+func ExecuteQuery(query string, args ...interface{}) (*sql.Rows, error) {
+	return DB.Query(query, args...)
+}
+
+// ExecuteQueryRow executes a query and returns a single row
+func ExecuteQueryRow(query string, args ...interface{}) *sql.Row {
+	return DB.QueryRow(query, args...)
+}
+
+// ExecuteExec executes a query that doesn't return rows
+func ExecuteExec(query string, args ...interface{}) (sql.Result, error) {
+	return DB.Exec(query, args...)
+}
+
+// Helper functions
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func getEnvAsInt(key string, fallback int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return fallback
+}
+
+func getEnvAsDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return fallback
+} 

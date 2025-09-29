@@ -1,0 +1,222 @@
+package db
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"time"
+
+	_ "github.com/lib/pq"
+	"test-minimal/internal/db/sqlc"
+)
+
+var (
+	DB   *sql.DB
+	Queries *sqlc.Queries
+)
+
+// Connect initializes database connection for sqlc
+func Connect() {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		host := getEnv("DB_HOST", "localhost")
+		port := getEnv("DB_PORT", "5432")
+		user := getEnv("DB_USER", "postgres")
+		password := getEnv("DB_PASSWORD", "password")
+		database := getEnv("DB_NAME", "test-minimal")
+		sslmode := getEnv("DB_SSL_MODE", "disable")
+		
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+			host, port, user, password, database, sslmode)
+	}
+
+	var err error
+	DB, err = sql.Open("postgres", dsn)
+	if err != nil {
+		log.Fatal("Database connection error:", err)
+	}
+
+	// Configure connection pool
+	DB.SetMaxOpenConns(getEnvAsInt("DB_MAX_OPEN_CONNS", 25))
+	DB.SetMaxIdleConns(getEnvAsInt("DB_MAX_IDLE_CONNS", 25))
+	DB.SetConnMaxLifetime(getEnvAsDuration("DB_CONN_MAX_LIFETIME", 300*time.Second))
+
+	// Test connection
+	err = DB.Ping()
+	if err != nil {
+		log.Fatal("Database ping failed:", err)
+	}
+
+	// Initialize sqlc queries
+	Queries = sqlc.New(DB)
+
+	log.Println("Connected to PostgreSQL with sqlc successfully")
+}
+
+// Close closes the database connection
+func Close() error {
+	if DB != nil {
+		return DB.Close()
+	}
+	return nil
+}
+
+// GetDB returns the database instance
+func GetDB() *sql.DB {
+	return DB
+}
+
+// GetQueries returns the sqlc queries instance
+func GetQueries() *sqlc.Queries {
+	return Queries
+}
+
+// UserRepository handles user-related database operations using sqlc
+type UserRepository struct {
+	queries *sqlc.Queries
+}
+
+// NewUserRepository creates a new user repository
+func NewUserRepository() *UserRepository {
+	return &UserRepository{queries: Queries}
+}
+
+// Create creates a new user
+func (r *UserRepository) Create(ctx context.Context, arg sqlc.CreateUserParams) (sqlc.User, error) {
+	return r.queries.CreateUser(ctx, arg)
+}
+
+// GetByID finds a user by ID
+func (r *UserRepository) GetByID(ctx context.Context, id int64) (sqlc.User, error) {
+	return r.queries.GetUserByID(ctx, id)
+}
+
+// GetByEmail finds a user by email
+func (r *UserRepository) GetByEmail(ctx context.Context, email string) (sqlc.User, error) {
+	return r.queries.GetUserByEmail(ctx, email)
+}
+
+// Update updates a user
+func (r *UserRepository) Update(ctx context.Context, arg sqlc.UpdateUserParams) (sqlc.User, error) {
+	return r.queries.UpdateUser(ctx, arg)
+}
+
+// Delete deletes a user
+func (r *UserRepository) Delete(ctx context.Context, id int64) error {
+	return r.queries.DeleteUser(ctx, id)
+}
+
+// List lists users with pagination
+func (r *UserRepository) List(ctx context.Context, arg sqlc.ListUsersParams) ([]sqlc.User, error) {
+	return r.queries.ListUsers(ctx, arg)
+}
+
+// SessionRepository handles session-related database operations using sqlc
+type SessionRepository struct {
+	queries *sqlc.Queries
+}
+
+// NewSessionRepository creates a new session repository
+func NewSessionRepository() *SessionRepository {
+	return &SessionRepository{queries: Queries}
+}
+
+// Create creates a new session
+func (r *SessionRepository) Create(ctx context.Context, arg sqlc.CreateSessionParams) (sqlc.Session, error) {
+	return r.queries.CreateSession(ctx, arg)
+}
+
+// GetByToken finds a session by refresh token
+func (r *SessionRepository) GetByToken(ctx context.Context, refreshToken string) (sqlc.Session, error) {
+	return r.queries.GetSessionByToken(ctx, refreshToken)
+}
+
+// DeleteByUserID deletes all sessions for a user
+func (r *SessionRepository) DeleteByUserID(ctx context.Context, userID int64) error {
+	return r.queries.DeleteSessionsByUserID(ctx, userID)
+}
+
+// DeleteExpired deletes expired sessions
+func (r *SessionRepository) DeleteExpired(ctx context.Context) error {
+	return r.queries.DeleteExpiredSessions(ctx)
+}
+
+// ProfileRepository handles profile-related database operations using sqlc
+type ProfileRepository struct {
+	queries *sqlc.Queries
+}
+
+// NewProfileRepository creates a new profile repository
+func NewProfileRepository() *ProfileRepository {
+	return &ProfileRepository{queries: Queries}
+}
+
+// Create creates a new profile
+func (r *ProfileRepository) Create(ctx context.Context, arg sqlc.CreateProfileParams) (sqlc.Profile, error) {
+	return r.queries.CreateProfile(ctx, arg)
+}
+
+// GetByUserID finds a profile by user ID
+func (r *ProfileRepository) GetByUserID(ctx context.Context, userID int64) (sqlc.Profile, error) {
+	return r.queries.GetProfileByUserID(ctx, userID)
+}
+
+// Update updates a profile
+func (r *ProfileRepository) Update(ctx context.Context, arg sqlc.UpdateProfileParams) (sqlc.Profile, error) {
+	return r.queries.UpdateProfile(ctx, arg)
+}
+
+// AuditLogRepository handles audit log-related database operations using sqlc
+type AuditLogRepository struct {
+	queries *sqlc.Queries
+}
+
+// NewAuditLogRepository creates a new audit log repository
+func NewAuditLogRepository() *AuditLogRepository {
+	return &AuditLogRepository{queries: Queries}
+}
+
+// Create creates a new audit log entry
+func (r *AuditLogRepository) Create(ctx context.Context, arg sqlc.CreateAuditLogParams) (sqlc.AuditLog, error) {
+	return r.queries.CreateAuditLog(ctx, arg)
+}
+
+// GetByUserID gets audit logs for a user
+func (r *AuditLogRepository) GetByUserID(ctx context.Context, arg sqlc.GetAuditLogsByUserIDParams) ([]sqlc.AuditLog, error) {
+	return r.queries.GetAuditLogsByUserID(ctx, arg)
+}
+
+// GetByAction gets audit logs by action
+func (r *AuditLogRepository) GetByAction(ctx context.Context, arg sqlc.GetAuditLogsByActionParams) ([]sqlc.AuditLog, error) {
+	return r.queries.GetAuditLogsByAction(ctx, arg)
+}
+
+// Helper functions
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func getEnvAsInt(key string, fallback int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return fallback
+}
+
+func getEnvAsDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return fallback
+} 
