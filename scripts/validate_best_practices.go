@@ -132,7 +132,7 @@ func (v *BestPracticeValidator) checkGoConventions(filePath string, lineNum int,
 	}
 
 	// Check for proper struct field tags
-	if matched, _ := regexp.MatchString(`\s+\w+\s+\w+\s+\`json:"\w+"\``, line); matched {
+	if matched, _ := regexp.MatchString(`\s+\w+\s+\w+\s+` + "`json:\"\\w+\"`", line); matched {
 		// Good practice - has JSON tags
 	} else if matched, _ := regexp.MatchString(`\s+\w+\s+string\s*$`, line); matched && strings.Contains(filePath, "models") {
 		v.addIssue(filePath, lineNum, "Go Conventions", "LOW",
