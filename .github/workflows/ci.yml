@@ -70,13 +70,47 @@ jobs:
         JWT_SECRET: test-jwt-secret-key-for-ci
       run: |
         echo "Running go vet..."
-        # Run go vet on main packages (exclude scripts which have multiple main functions)
-        go vet ./cmd/... ./internal/... || {
-          echo "go vet failed. Checking for specific issues..."
-          go vet ./internal/... 2>&1 | head -10
-          go vet ./cmd/... 2>&1 | head -10
-          exit 1
-        }
+        echo "Checking project structure..."
+        ls -la
+        echo "Go version:"
+        go version
+        echo "Go env:"
+        go env GOPATH GOROOT
+        
+        # Build list of packages to vet
+        VET_PACKAGES=()
+        if [ -d "./internal" ]; then
+          echo "Found internal directory"
+          VET_PACKAGES+=("./internal/...")
+        fi
+        if [ -d "./cmd" ]; then
+          echo "Found cmd directory"
+          ls -la ./cmd/
+          VET_PACKAGES+=("./cmd/...")
+        fi
+        if [ -d "./pkg" ]; then
+          echo "Found pkg directory"
+          VET_PACKAGES+=("./pkg/...")
+        fi
+        
+        if [ ${#VET_PACKAGES[@]} -eq 0 ]; then
+          echo "No standard Go packages found, checking root..."
+          go vet .
+        else
+          echo "Running go vet on: ${VET_PACKAGES[*]}"
+          go vet "${VET_PACKAGES[@]}" || {
+            echo "go vet failed. Checking individual packages..."
+            if [ -d "./internal" ]; then
+              echo "Checking internal..."
+              go vet ./internal/... 2>&1 | head -10
+            fi
+            if [ -d "./cmd" ]; then
+              echo "Checking cmd..."
+              go vet ./cmd/... 2>&1 | head -10
+            fi
+            exit 1
+          }
+        fi
         
         # Check scripts separately (each file is a standalone program with build constraints)
         echo "Checking scripts directory..."
