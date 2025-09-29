@@ -1,3 +1,6 @@
+//go:build ignore
+// +build ignore
+
 package main
 
 import (
@@ -81,25 +84,25 @@ func (v *BestPracticeValidator) validateFile(filePath string) error {
 func (v *BestPracticeValidator) checkLine(filePath string, lineNum int, line string) {
 	// Check Go best practices
 	v.checkGoConventions(filePath, lineNum, line)
-	
+
 	// Check error handling
 	v.checkErrorHandling(filePath, lineNum, line)
-	
+
 	// Check logging practices
 	v.checkLoggingPractices(filePath, lineNum, line)
-	
+
 	// Check configuration management
 	v.checkConfigurationManagement(filePath, lineNum, line)
-	
+
 	// Check database practices
 	v.checkDatabasePractices(filePath, lineNum, line)
-	
+
 	// Check HTTP/API practices
 	v.checkHTTPPractices(filePath, lineNum, line)
-	
+
 	// Check Docker practices
 	v.checkDockerPractices(filePath, lineNum, line)
-	
+
 	// Check testing practices
 	v.checkTestingPractices(filePath, lineNum, line)
 }
@@ -132,7 +135,7 @@ func (v *BestPracticeValidator) checkGoConventions(filePath string, lineNum int,
 	}
 
 	// Check for proper struct field tags
-	if matched, _ := regexp.MatchString(`\s+\w+\s+\w+\s+` + "`json:\"\\w+\"`", line); matched {
+	if matched, _ := regexp.MatchString(`\s+\w+\s+\w+\s+`+"`json:\"\\w+\"`", line); matched {
 		// Good practice - has JSON tags
 	} else if matched, _ := regexp.MatchString(`\s+\w+\s+string\s*$`, line); matched && strings.Contains(filePath, "models") {
 		v.addIssue(filePath, lineNum, "Go Conventions", "LOW",
@@ -187,8 +190,8 @@ func (v *BestPracticeValidator) checkLoggingPractices(filePath string, lineNum i
 	// Check for sensitive data in logs
 	sensitivePatterns := []string{"password", "secret", "token", "key"}
 	for _, pattern := range sensitivePatterns {
-		if strings.Contains(strings.ToLower(line), pattern) && 
-		   (strings.Contains(line, "log.") || strings.Contains(line, "fmt.Print")) {
+		if strings.Contains(strings.ToLower(line), pattern) &&
+			(strings.Contains(line, "log.") || strings.Contains(line, "fmt.Print")) {
 			v.addIssue(filePath, lineNum, "Logging", "HIGH",
 				"Potential sensitive data in logs",
 				"Avoid logging sensitive information like passwords, tokens, or keys")
@@ -242,8 +245,8 @@ func (v *BestPracticeValidator) checkDatabasePractices(filePath string, lineNum 
 	}
 
 	// Check for missing context in database operations
-	if (strings.Contains(line, ".Exec(") || strings.Contains(line, ".Query(")) && 
-	   !strings.Contains(line, "Context") {
+	if (strings.Contains(line, ".Exec(") || strings.Contains(line, ".Query(")) &&
+		!strings.Contains(line, "Context") {
 		v.addIssue(filePath, lineNum, "Database", "MEDIUM",
 			"Database operation without context",
 			"Use ExecContext() and QueryContext() for better cancellation support")
@@ -358,7 +361,7 @@ func (v *BestPracticeValidator) printResults() {
 
 	// Group issues by category and severity
 	categories := make(map[string]map[string][]BestPracticeIssue)
-	
+
 	for _, issue := range v.issues {
 		if categories[issue.Category] == nil {
 			categories[issue.Category] = make(map[string][]BestPracticeIssue)
@@ -369,17 +372,17 @@ func (v *BestPracticeValidator) printResults() {
 	// Print summary
 	fmt.Printf("\n📊 Best Practices Validation Summary:\n")
 	fmt.Printf("  Total Issues: %d\n", len(v.issues))
-	
+
 	highCount := 0
 	mediumCount := 0
 	lowCount := 0
-	
+
 	for _, severityMap := range categories {
 		highCount += len(severityMap["HIGH"])
 		mediumCount += len(severityMap["MEDIUM"])
 		lowCount += len(severityMap["LOW"])
 	}
-	
+
 	fmt.Printf("  High Priority: %d\n", highCount)
 	fmt.Printf("  Medium Priority: %d\n", mediumCount)
 	fmt.Printf("  Low Priority: %d\n", lowCount)
@@ -387,7 +390,7 @@ func (v *BestPracticeValidator) printResults() {
 	// Print issues by category
 	for category, severityMap := range categories {
 		fmt.Printf("\n📂 %s Issues:\n", category)
-		
+
 		for _, severity := range []string{"HIGH", "MEDIUM", "LOW"} {
 			issues := severityMap[severity]
 			if len(issues) == 0 {

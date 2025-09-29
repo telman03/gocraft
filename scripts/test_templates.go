@@ -1,3 +1,6 @@
+//go:build ignore
+// +build ignore
+
 package main
 
 import (
@@ -24,7 +27,7 @@ type TestData struct {
 
 // TemplateTest represents a template test case
 type TemplateTest struct {
-	Name        string
+	Name         string
 	TemplatePath string
 	OutputPath   string
 	Data         TestData
@@ -34,7 +37,7 @@ type TemplateTest struct {
 
 func main() {
 	fmt.Println("🧪 Starting Template Testing Suite...")
-	
+
 	// Create test data scenarios
 	testScenarios := []TestData{
 		{
@@ -156,19 +159,19 @@ func main() {
 
 func findTemplateFiles(dir string) ([]string, error) {
 	var templates []string
-	
+
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		
+
 		if !d.IsDir() && strings.HasSuffix(path, ".tmpl") {
 			templates = append(templates, path)
 		}
-		
+
 		return nil
 	})
-	
+
 	return templates, err
 }
 
@@ -218,15 +221,15 @@ func testTemplate(templatePath, outputPath string, data TestData) error {
 
 func runValidationTests(outputDir string, scenarios []TestData) {
 	fmt.Printf("  🔍 Checking for syntax errors in generated Go files...\n")
-	
+
 	for _, scenario := range scenarios {
 		scenarioDir := filepath.Join(outputDir, scenario.ProjectName)
-		
+
 		err := filepath.WalkDir(scenarioDir, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
-			
+
 			if !d.IsDir() && strings.HasSuffix(path, ".go") {
 				if err := validateGoSyntax(path); err != nil {
 					fmt.Printf("    ❌ Syntax error in %s: %v\n", path, err)
@@ -234,10 +237,10 @@ func runValidationTests(outputDir string, scenarios []TestData) {
 					fmt.Printf("    ✅ %s\n", filepath.Base(path))
 				}
 			}
-			
+
 			return nil
 		})
-		
+
 		if err != nil {
 			fmt.Printf("    ❌ Error walking directory %s: %v\n", scenarioDir, err)
 		}
@@ -259,19 +262,19 @@ func validateGoSyntax(filePath string) error {
 
 	// Basic syntax checks
 	contentStr := string(content)
-	
+
 	// Check for common syntax issues
 	if strings.Contains(contentStr, "{{") && strings.Contains(contentStr, "}}") {
 		return fmt.Errorf("unprocessed template variables found")
 	}
-	
+
 	// Check for balanced braces (basic check)
 	openBraces := strings.Count(contentStr, "{")
 	closeBraces := strings.Count(contentStr, "}")
 	if openBraces != closeBraces {
 		return fmt.Errorf("unbalanced braces: %d open, %d close", openBraces, closeBraces)
 	}
-	
+
 	// Check for balanced parentheses
 	openParens := strings.Count(contentStr, "(")
 	closeParens := strings.Count(contentStr, ")")
@@ -285,7 +288,7 @@ func validateGoSyntax(filePath string) error {
 func validateDockerFiles(outputDir string, scenarios []TestData) {
 	for _, scenario := range scenarios {
 		scenarioDir := filepath.Join(outputDir, scenario.ProjectName)
-		
+
 		// Check Dockerfile
 		dockerfilePath := filepath.Join(scenarioDir, "dockerfile")
 		if _, err := os.Stat(dockerfilePath); err == nil {
@@ -295,7 +298,7 @@ func validateDockerFiles(outputDir string, scenarios []TestData) {
 				fmt.Printf("    ✅ Dockerfile\n")
 			}
 		}
-		
+
 		// Check docker-compose.yml
 		composePath := filepath.Join(scenarioDir, "docker-compose")
 		if _, err := os.Stat(composePath); err == nil {
@@ -311,7 +314,7 @@ func validateDockerfile(filePath string) error {
 	}
 
 	contentStr := string(content)
-	
+
 	// Check for required Dockerfile instructions
 	requiredInstructions := []string{"FROM", "WORKDIR", "COPY", "RUN", "EXPOSE", "CMD"}
 	for _, instruction := range requiredInstructions {
@@ -326,10 +329,10 @@ func validateDockerfile(filePath string) error {
 func validateConfigFiles(outputDir string, scenarios []TestData) {
 	for _, scenario := range scenarios {
 		scenarioDir := filepath.Join(outputDir, scenario.ProjectName)
-		
+
 		// Check various config files
 		configFiles := []string{"env", "makefile", "gitignore"}
-		
+
 		for _, configFile := range configFiles {
 			configPath := filepath.Join(scenarioDir, configFile)
 			if _, err := os.Stat(configPath); err == nil {

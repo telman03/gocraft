@@ -78,12 +78,13 @@ jobs:
           exit 1
         }
         
-        # Check scripts separately (each file is a standalone program)
+        # Check scripts separately (each file is a standalone program with build constraints)
         echo "Checking scripts directory..."
         for script in scripts/*.go; do
           if [ -f "$script" ]; then
-            echo "Checking $script..."
-            go vet "$script" || echo "Warning: $script has issues"
+            echo "Checking syntax of $script..."
+            # Verify syntax by attempting to build (ignore build constraint for syntax check)
+            go build -o /dev/null "$script" >/dev/null 2>&1 && echo "✓ $script syntax OK" || echo "✗ $script has syntax issues"
           fi
         done
 

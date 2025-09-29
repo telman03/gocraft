@@ -1,3 +1,6 @@
+//go:build ignore
+// +build ignore
+
 package main
 
 import (
@@ -103,7 +106,7 @@ func main() {
 
 func runIntegrationTest(testDir string, scenario IntegrationTest) error {
 	projectDir := filepath.Join(testDir, scenario.ProjectName)
-	
+
 	// Create project directory
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		return fmt.Errorf("failed to create project directory: %w", err)
@@ -135,7 +138,7 @@ func runIntegrationTest(testDir string, scenario IntegrationTest) error {
 func generateProjectFiles(projectDir string, scenario IntegrationTest) error {
 	// This would normally use your template engine
 	// For now, we'll create basic files to test the structure
-	
+
 	// Create go.mod
 	goModContent := fmt.Sprintf(`module %s
 
@@ -257,7 +260,7 @@ CMD ["./main"]
 func validateGeneratedProject(projectDir string, scenario IntegrationTest) error {
 	// Check required files exist
 	requiredFiles := []string{"go.mod", "main.go", "Dockerfile"}
-	
+
 	for _, file := range requiredFiles {
 		filePath := filepath.Join(projectDir, file)
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -306,7 +309,7 @@ func testGoCompilation(projectDir string) error {
 	// Try to build the Go project
 	cmd := exec.Command("go", "build", "-o", "test-binary", ".")
 	cmd.Dir = projectDir
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("go build failed: %w\nOutput: %s", err, string(output))
