@@ -254,7 +254,7 @@ func TestProjectService_Create(t *testing.T) {
 ### Getting Help
 
 - Check the [documentation](docs/)
-- Search existing [issues](https://github.com/gocraft/gocraft/issues)
+- Search existing [issues](https://github.com/telman03/gocraft-backend/issues)
 - Join our discussions
 - Ask questions in issues with the `question` label
 

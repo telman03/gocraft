@@ -446,10 +446,10 @@ If GoCraft helps you build better Go applications, please consider:
 
 ### 📈 Roadmap
 
-- **Q1 2025**: GraphQL support, Prometheus metrics
-- **Q2 2025**: Message queue integrations, CLI tool
-- **Q3 2025**: Microservices architecture, custom templates
-- **Q4 2025**: Advanced monitoring, performance optimizations
+- **Q1 2026**: GraphQL support, Prometheus metrics
+- **Q2 2026**: Message queue integrations, CLI tool
+- **Q3 2026**: Microservices architecture, custom templates
+- **Q4 2026**: Advanced monitoring, performance optimizations
 
 ---
 
