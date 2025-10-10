@@ -460,3 +460,4 @@ If GoCraft helps you build better Go applications, please consider:
 [Website](https://gocraft.online) • [Documentation](./docs/) • [API Reference](http://localhost:8080/swagger/) • [GitHub](https://github.com/telman03/gocraft-backend)
 
 </div>
+<a href="https://www.buymeacoffee.com/gocraft" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
