@@ -8,8 +8,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
-	"github.com/telman03/ai-backend-generator/internal/handlers"
-	"github.com/telman03/ai-backend-generator/internal/models"
+	"github.com/telman03/gocraft-backend/internal/handlers"
+	"github.com/telman03/gocraft-backend/internal/models"
 )
 
 func TestGetCurrentUser_Success(t *testing.T) {

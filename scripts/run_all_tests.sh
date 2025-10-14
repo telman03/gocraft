@@ -59,7 +59,7 @@ else
 fi
 
 # 6. Template Conflict Detection
-run_test "Template Conflict Detection" "go run -c 'package main; import \"github.com/telman03/ai-backend-generator/internal/validation\"; func main() { v := validation.NewTemplateValidator(); result := v.ValidateFeatures([]string{\"gin\", \"fiber\"}); if !result.IsValid { panic(\"conflicts detected\") } }' 2>/dev/null || echo 'Conflict detection test completed'"
+run_test "Template Conflict Detection" "go run -c 'package main; import \"github.com/telman03/gocraft-backend/internal/validation\"; func main() { v := validation.NewTemplateValidator(); result := v.ValidateFeatures([]string{\"gin\", \"fiber\"}); if !result.IsValid { panic(\"conflicts detected\") } }' 2>/dev/null || echo 'Conflict detection test completed'"
 
 # 7. Integration Tests
 run_test "Integration Tests" "go run scripts/integration_test.go"
