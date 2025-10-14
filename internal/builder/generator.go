@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/telman03/ai-backend-generator/internal/utils"
+	"github.com/telman03/gocraft-backend/internal/utils"
 )
 
 // TemplateMapping defines where each template should be rendered

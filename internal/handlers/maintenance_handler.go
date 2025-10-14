@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/services"
+	"github.com/telman03/gocraft-backend/internal/services"
 )
 
 // MaintenanceHandler handles maintenance-related API endpoints

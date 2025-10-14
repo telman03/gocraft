@@ -1,4 +1,4 @@
-module github.com/telman03/ai-backend-generator
+module github.com/telman03/gocraft-backend
 
 go 1.23.0
 

@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/telman03/ai-backend-generator/internal/models"
+	"github.com/telman03/gocraft-backend/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/auth"
-	"github.com/telman03/ai-backend-generator/internal/database"
-	"github.com/telman03/ai-backend-generator/internal/models"
-	"github.com/telman03/ai-backend-generator/internal/utils"
+	"github.com/telman03/gocraft-backend/internal/auth"
+	"github.com/telman03/gocraft-backend/internal/database"
+	"github.com/telman03/gocraft-backend/internal/models"
+	"github.com/telman03/gocraft-backend/internal/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 

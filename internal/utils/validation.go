@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/errors"
+	"github.com/telman03/gocraft-backend/internal/errors"
 )
 
 var validate *validator.Validate

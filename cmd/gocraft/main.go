@@ -8,13 +8,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
-	"github.com/telman03/ai-backend-generator/internal/api"
-	"github.com/telman03/ai-backend-generator/internal/config"
-	"github.com/telman03/ai-backend-generator/internal/database"
-	"github.com/telman03/ai-backend-generator/internal/services"
+	"github.com/telman03/gocraft-backend/internal/api"
+	"github.com/telman03/gocraft-backend/internal/config"
+	"github.com/telman03/gocraft-backend/internal/database"
+	"github.com/telman03/gocraft-backend/internal/services"
 
 	fiberSwagger "github.com/swaggo/fiber-swagger"
-	_ "github.com/telman03/ai-backend-generator/docs/api"
+	_ "github.com/telman03/gocraft-backend/docs/api"
 )
 
 // @title GoCraft API

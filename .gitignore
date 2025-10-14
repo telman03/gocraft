@@ -30,7 +30,7 @@ service-account.json
 *.so
 *.dylib
 /gocraft
-/ai-backend-generator
+/gocraft-backend
 
 # 🧪 Testing
 *.test

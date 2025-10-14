@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/telman03/ai-backend-generator/internal/logging"
+	"github.com/telman03/gocraft-backend/internal/logging"
 )
 
 // MetricsCollector collects and tracks application metrics
