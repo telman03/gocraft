@@ -255,12 +255,16 @@ func Login(c *fiber.Ctx) error {
 }
 
 // GetCurrentUser godoc
-// @Summary Get current authenticated user
-// @Description Returns user ID and email from JWT
+// @Summary Get current authenticated user profile
+// @Description Returns user profile information including email, projects count, and joined date
 // @Tags Auth
 // @Security BearerAuth
 // @Accept json
 // @Produce json
+// @Success 200 {object} map[string]interface{} "User profile information"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 404 {object} map[string]interface{} "User not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /auth/me [get]
 func GetCurrentUser(c *fiber.Ctx) error {
 	userID := c.Locals("user_id")
@@ -269,7 +273,40 @@ func GetCurrentUser(c *fiber.Ctx) error {
 		return utils.SendErrorResponse(c, fiber.StatusUnauthorized, "User not authenticated")
 	}
 
+	// Convert userID to uint (JWT claims parse numbers as float64)
+	var uid uint
+	switch v := userID.(type) {
+	case float64:
+		uid = uint(v)
+	case uint:
+		uid = v
+	case int:
+		uid = uint(v)
+	default:
+		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Invalid user ID format")
+	}
+
+	// Fetch user from database
+	var user models.User
+	if err := database.DB.Where("id = ?", uid).First(&user).Error; err != nil {
+		return utils.SendErrorResponse(c, fiber.StatusNotFound, "User not found")
+	}
+
+	// Count user's projects
+	var projectCount int64
+	if err := database.DB.Model(&models.ProjectHistory{}).Where("user_id = ?", uid).Count(&projectCount).Error; err != nil {
+		log.Printf("Failed to count user projects: %v", err)
+		projectCount = 0 // Default to 0 if count fails
+	}
+
 	return c.JSON(fiber.Map{
-		"id": userID,
+		"id":              user.ID,
+		"email":           user.Email,
+		"role":            user.Role,
+		"is_verified":     user.IsVerified,
+		"projects_count":  projectCount,
+		"joined_date":     user.CreatedAt,
+		"created_at":      user.CreatedAt,
+		"updated_at":      user.UpdatedAt,
 	})
 }

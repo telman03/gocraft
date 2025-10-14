@@ -119,12 +119,16 @@ func recordHistory(userID uint, genRequest models.GenerateRequest, startTime tim
 	adjustedFeatures := allFeatures
 
 	// Try to determine the ZIP file path and size
-	// This is a best-effort attempt based on common patterns
+	// Use the same sanitization logic as the builder
 	var zipFilePath *string
 	var zipFileSize *int64
 
-	// Try to get the file path from the response or generate expected path
-	expectedZipPath := fmt.Sprintf("output/%s.zip", genRequest.ProjectName)
+	// Sanitize project name the same way the builder does
+	sanitizedName := strings.ReplaceAll(genRequest.ProjectName, " ", "-")
+	sanitizedName = strings.ToLower(sanitizedName)
+	
+	// Generate expected path using sanitized name
+	expectedZipPath := fmt.Sprintf("output/%s.zip", sanitizedName)
 	if fileInfo, err := os.Stat(expectedZipPath); err == nil {
 		cleanPath := filepath.Clean(expectedZipPath)
 		zipFilePath = &cleanPath
