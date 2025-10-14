@@ -18,7 +18,7 @@ COPY . .
 
 # Build the application and place it in bin directory as expected by deployment
 RUN mkdir -p bin && \
-    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/ai-backend-generator ./cmd/gocraft
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/gocraft ./cmd/gocraft
 
 # Final stage
 FROM alpine:latest
@@ -34,7 +34,7 @@ RUN addgroup -g 1001 -S gocraft && \
 WORKDIR /app
 
 # Copy binary from builder stage
-COPY --from=builder /app/bin/ai-backend-generator ./bin/ai-backend-generator
+COPY --from=builder /app/bin/gocraft ./bin/gocraft
 
 # Copy templates and static files
 COPY --from=builder /app/internal/templates ./internal/templates
@@ -53,4 +53,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/api/health || exit 1
 
 # Run the application
-CMD ["bin/ai-backend-generator"]
+CMD ["bin/gocraft"]

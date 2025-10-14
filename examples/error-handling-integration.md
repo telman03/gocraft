@@ -24,10 +24,10 @@ import (
     "os"
     
     "github.com/gofiber/fiber/v2"
-    "github.com/telman03/ai-backend-generator/internal/errors"
-    "github.com/telman03/ai-backend-generator/internal/logging"
-    "github.com/telman03/ai-backend-generator/internal/middleware"
-    "github.com/telman03/ai-backend-generator/internal/monitoring"
+    "github.com/telman03/gocraft-backend/internal/errors"
+    "github.com/telman03/gocraft-backend/internal/logging"
+    "github.com/telman03/gocraft-backend/internal/middleware"
+    "github.com/telman03/gocraft-backend/internal/monitoring"
 )
 
 func main() {
@@ -77,8 +77,8 @@ package handlers
 
 import (
     "github.com/gofiber/fiber/v2"
-    "github.com/telman03/ai-backend-generator/internal/errors"
-    "github.com/telman03/ai-backend-generator/internal/logging"
+    "github.com/telman03/gocraft-backend/internal/errors"
+    "github.com/telman03/gocraft-backend/internal/logging"
 )
 
 func GetProjectHandler(c *fiber.Ctx) error {

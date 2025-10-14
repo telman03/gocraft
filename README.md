@@ -361,7 +361,7 @@ We welcome contributions from the community! Here's how to get started:
 1. **Fork the Repository**
    ```bash
    git clone https://github.com/YOUR_USERNAME/gocraft-backend.git
-   cd ai-backend-generator
+   cd gocraft-backend
    ```
 
 2. **Create a Feature Branch**
