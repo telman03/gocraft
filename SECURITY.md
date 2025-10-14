@@ -153,7 +153,7 @@ For security-related questions or concerns:
 
 ## Legal
 
-This security policy is subject to our [Terms of Service](https://github.com/gocraft/gocraft) and [Privacy Policy](https://github.com/gocraft/gocraft).
+This security policy is subject to our [Terms of Service](https://github.com/telman03/gocraft-backend) and [Privacy Policy](https://github.com/telman03/gocraft-backend).
 
 By reporting a vulnerability, you agree to:
 - Not publicly disclose the issue until we have had a chance to address it

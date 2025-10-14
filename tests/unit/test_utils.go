@@ -3,7 +3,7 @@ package unit
 import (
 	"testing"
 
-	"github.com/telman03/ai-backend-generator/internal/models"
+	"github.com/telman03/gocraft-backend/internal/models"
 	"gorm.io/gorm"
 )
 

@@ -8,7 +8,7 @@ import (
 	"log"
 
 	"github.com/joho/godotenv"
-	"github.com/telman03/ai-backend-generator/internal/database"
+	"github.com/telman03/gocraft-backend/internal/database"
 )
 
 func main() {

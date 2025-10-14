@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/database"
-	"github.com/telman03/ai-backend-generator/internal/models"
+	"github.com/telman03/gocraft-backend/internal/database"
+	"github.com/telman03/gocraft-backend/internal/models"
 )
 
 // AuthorizationError represents authorization-specific error codes

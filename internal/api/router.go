@@ -4,10 +4,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/database"
-	"github.com/telman03/ai-backend-generator/internal/handlers"
-	"github.com/telman03/ai-backend-generator/internal/middleware"
-	"github.com/telman03/ai-backend-generator/internal/services"
+	"github.com/telman03/gocraft-backend/internal/database"
+	"github.com/telman03/gocraft-backend/internal/handlers"
+	"github.com/telman03/gocraft-backend/internal/middleware"
+	"github.com/telman03/gocraft-backend/internal/services"
 )
 
 func SetupRoutes(app *fiber.App, historyService *services.ProjectHistoryService, dbMaintenanceService *services.DatabaseMaintenanceService, fileCleanupService *services.FileCleanupService) {
@@ -73,11 +73,19 @@ func SetupRoutes(app *fiber.App, historyService *services.ProjectHistoryService,
 	debug.Post("/request", handlers.DebugRequest)
 	debug.Post("/download", handlers.DebugDownload)
 	
-	// Project generation and validation
+	// Public generation endpoints (works for both guest and authenticated users)
+	public := app.Group("/api/v1", middleware.OptionalAuth)
+	public.Post("/generate", handlers.GenerateWithOptionalAuth)
+	public.Post("/validate", handlers.ValidateFeatures)
+	
+	// Legacy public routes for backward compatibility (guest users only)
+	app.Post("/generate", handlers.GeneratePublic)
+	app.Post("/validate", handlers.ValidateFeatures)
+	
+	// Authenticated project generation (with history tracking)
 	secure := app.Group("/generate", middleware.RequireAuth, middleware.HistoryTrackingMiddleware(historyService))
-	secure.Post("/", handlers.Generate)
+	secure.Post("/authenticated", handlers.Generate)
 	secure.Post("/verify", handlers.VerifyGeneration)
-	secure.Post("/validate", handlers.ValidateFeatures)
 
 	// Project history endpoints
 	api := app.Group("/api", middleware.RequireAuth)

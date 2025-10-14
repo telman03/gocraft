@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/errors"
-	"github.com/telman03/ai-backend-generator/internal/logging"
+	"github.com/telman03/gocraft-backend/internal/errors"
+	"github.com/telman03/gocraft-backend/internal/logging"
 )
 
 // HistoryErrorHandler provides error handling utilities for history handlers

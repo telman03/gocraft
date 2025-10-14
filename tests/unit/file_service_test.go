@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/telman03/ai-backend-generator/internal/services"
+	"github.com/telman03/gocraft-backend/internal/services"
 )
 
 func TestFileService_GetFilePath(t *testing.T) {

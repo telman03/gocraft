@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/telman03/ai-backend-generator/internal/models"
-	"github.com/telman03/ai-backend-generator/internal/utils"
-	"github.com/telman03/ai-backend-generator/internal/validation"
+	"github.com/telman03/gocraft-backend/internal/models"
+	"github.com/telman03/gocraft-backend/internal/utils"
+	"github.com/telman03/gocraft-backend/internal/validation"
 )
 
 // ValidateFeatures godoc

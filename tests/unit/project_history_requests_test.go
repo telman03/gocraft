@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/telman03/ai-backend-generator/internal/models"
+	"github.com/telman03/gocraft-backend/internal/models"
 )
 
 func TestProjectHistoryResponse_JSONSerialization(t *testing.T) {
