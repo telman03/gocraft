@@ -48,7 +48,7 @@ func LoadMaintenanceConfig() *MaintenanceConfig {
 		}
 	}
 
-	if val := os.Getenv("FILE_RETENTION_PERIOD_DAYS"); val != "" {
+	if val := os.Getenv("FILE_RETENTION_DAYS"); val != "" {
 		if days, err := strconv.Atoi(val); err == nil {
 			config.FileRetentionPeriod = time.Duration(days) * 24 * time.Hour
 		}

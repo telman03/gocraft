@@ -41,12 +41,15 @@
    ```bash
    cp .env.example .env
    # Edit .env with your database credentials
+   # Make sure to set up PostgreSQL and update the DATABASE_URL
    ```
 
 3. **Start the Server**
    ```bash
    go run cmd/gocraft/main.go
    ```
+   
+   **Note**: If you encounter database connection errors, ensure PostgreSQL is running and your `.env` file has the correct database credentials.
 
 Your GoCraft server is now running at `http://localhost:8080` 🎉
 
