@@ -27,7 +27,7 @@
 
 ---
 
-## 🚀 Short Term (Q1 2025)
+## 🚀 Short Term (Q1 2026)
 
 ### 🔧 Core Improvements
 
@@ -400,8 +400,7 @@ We value community input! Share your thoughts on:
 
 **Contact us:**
 - 📧 **Email:** roadmap@gocraft.dev
-- 💬 **Discussions:** [GitHub Discussions](https://github.com/telman03/gocraft/discussions)
-- 🐛 **Issues:** [GitHub Issues](https://github.com/telman03/gocraft/issues)
+- 🐛 **Issues:** [GitHub Issues](https://github.com/telman03/gocraft-backend/issues)
 
 ---
 

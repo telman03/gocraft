@@ -29,7 +29,7 @@ jobs:
           - 5432:5432
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -37,7 +37,7 @@ jobs:
         go-version: ${{ matrix.go-version }}
 
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -157,7 +157,7 @@ jobs:
         go test -timeout=10m -run="Performance|Concurrent|LargeDataset" ./tests/unit/ -v || echo "Performance tests failed (expected in CI)"
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       if: success() && hashFiles('coverage.out') != ''
       with:
         file: ./coverage.out
@@ -170,7 +170,7 @@ jobs:
     needs: test
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -232,7 +232,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -241,7 +241,7 @@ jobs:
 
     - name: golangci-lint
       continue-on-error: true
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@v8
       with:
         version: latest
         args: --timeout=5m --out-format=colored-line-number
@@ -250,7 +250,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Set up Go
       uses: actions/setup-go@v4

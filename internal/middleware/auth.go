@@ -155,3 +155,91 @@ func logAuthSuccess(c *fiber.Ctx, userID interface{}) {
 	log.Printf("[AUTH_SUCCESS] IP: %s, Path: %s, Method: %s, UserID: %v", 
 		c.IP(), c.Path(), c.Method(), userID)
 }
+
+// OptionalAuth middleware extracts user info if token is provided, but doesn't require authentication
+// This allows endpoints to work for both authenticated and guest users
+func OptionalAuth(c *fiber.Ctx) error {
+	authHeader := c.Get("Authorization")
+	
+	// If no auth header, continue as guest user
+	if authHeader == "" {
+		c.Locals("user_id", nil)
+		c.Locals("jwt_claims", nil)
+		c.Locals("is_authenticated", false)
+		return c.Next()
+	}
+
+	// If auth header exists, try to validate it
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		// Invalid format but continue as guest
+		c.Locals("user_id", nil)
+		c.Locals("jwt_claims", nil)
+		c.Locals("is_authenticated", false)
+		return c.Next()
+	}
+
+	tokenString := authHeader[7:] // Remove "Bearer " prefix
+	if tokenString == "" {
+		// Empty token, continue as guest
+		c.Locals("user_id", nil)
+		c.Locals("jwt_claims", nil)
+		c.Locals("is_authenticated", false)
+		return c.Next()
+	}
+
+	// Try to validate the token
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(auth.GetJWTSecret()), nil
+	})
+
+	// If token is invalid, continue as guest
+	if err != nil || !token.Valid {
+		c.Locals("user_id", nil)
+		c.Locals("jwt_claims", nil)
+		c.Locals("is_authenticated", false)
+		return c.Next()
+	}
+
+	// Extract and validate claims
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		c.Locals("user_id", nil)
+		c.Locals("jwt_claims", nil)
+		c.Locals("is_authenticated", false)
+		return c.Next()
+	}
+
+	// Validate required claims
+	userID, ok := claims["sub"]
+	if !ok {
+		c.Locals("user_id", nil)
+		c.Locals("jwt_claims", nil)
+		c.Locals("is_authenticated", false)
+		return c.Next()
+	}
+
+	// Validate expiration if present
+	if exp, ok := claims["exp"]; ok {
+		if expFloat, ok := exp.(float64); ok {
+			if time.Now().Unix() > int64(expFloat) {
+				c.Locals("user_id", nil)
+				c.Locals("jwt_claims", nil)
+				c.Locals("is_authenticated", false)
+				return c.Next()
+			}
+		}
+	}
+
+	// Store authenticated user context
+	c.Locals("user_id", userID)
+	c.Locals("jwt_claims", claims)
+	c.Locals("is_authenticated", true)
+	
+	// Log successful authentication for audit purposes
+	logAuthSuccess(c, userID)
+	
+	return c.Next()
+}

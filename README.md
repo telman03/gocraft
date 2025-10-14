@@ -32,8 +32,8 @@
 
 1. **Clone and Setup**
    ```bash
-   git clone https://github.com/telman03/ai-backend-generator.git
-   cd ai-backend-generator
+   git clone https://github.com/telman03/gocraft-backend.git
+   cd gocraft-backend
    go mod tidy
    ```
 
@@ -360,7 +360,7 @@ We welcome contributions from the community! Here's how to get started:
 
 1. **Fork the Repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/ai-backend-generator.git
+   git clone https://github.com/YOUR_USERNAME/gocraft-backend.git
    cd ai-backend-generator
    ```
 
@@ -421,9 +421,9 @@ The MIT License allows you to:
 ### 📞 Getting Help
 
 - 📖 **Documentation**: Check our comprehensive [docs](./docs/)
-- 🐛 **Bug Reports**: [Create an issue](https://github.com/telman03/ai-backend-generator/issues/new)
-- 💡 **Feature Requests**: [Request a feature](https://github.com/telman03/ai-backend-generator/issues/new)
-- 💬 **Discussions**: [Join the conversation](https://github.com/telman03/ai-backend-generator/discussions)
+- 🐛 **Bug Reports**: [Create an issue](https://github.com/telman03/gocraft-backend/issues/new)
+- 💡 **Feature Requests**: [Request a feature](https://github.com/telman03/gocraft-backend/issues/new)
+- 💬 **Discussions**: [Join the conversation](https://github.com/telman03/gocraft-backend/discussions)
 
 ### 🌟 Show Your Support
 
@@ -449,10 +449,10 @@ If GoCraft helps you build better Go applications, please consider:
 
 ### 📈 Roadmap
 
-- **Q1 2025**: GraphQL support, Prometheus metrics
-- **Q2 2025**: Message queue integrations, CLI tool
-- **Q3 2025**: Microservices architecture, custom templates
-- **Q4 2025**: Advanced monitoring, performance optimizations
+- **Q1 2026**: GraphQL support, Prometheus metrics
+- **Q2 2026**: Message queue integrations, CLI tool
+- **Q3 2026**: Microservices architecture, custom templates
+- **Q4 2026**: Advanced monitoring, performance optimizations
 
 ---
 
@@ -460,6 +460,7 @@ If GoCraft helps you build better Go applications, please consider:
 
 **Built with ❤️ by the GoCraft team**
 
-[Website](https://gocraft.dev) • [Documentation](./docs/) • [API Reference](http://localhost:8080/swagger/) • [GitHub](https://github.com/telman03/ai-backend-generator)
+[Website](https://gocraft.online) • [Documentation](./docs/) • [API Reference](http://localhost:8080/swagger/) • [GitHub](https://github.com/telman03/gocraft-backend)
 
 </div>
+<a href="https://www.buymeacoffee.com/gocraft" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>

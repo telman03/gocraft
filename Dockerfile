@@ -16,8 +16,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/gocraft/main.go
+# Build the application and place it in bin directory as expected by deployment
+RUN mkdir -p bin && \
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/ai-backend-generator ./cmd/gocraft
 
 # Final stage
 FROM alpine:latest
@@ -33,7 +34,7 @@ RUN addgroup -g 1001 -S gocraft && \
 WORKDIR /app
 
 # Copy binary from builder stage
-COPY --from=builder /app/main .
+COPY --from=builder /app/bin/ai-backend-generator ./bin/ai-backend-generator
 
 # Copy templates and static files
 COPY --from=builder /app/internal/templates ./internal/templates
@@ -52,4 +53,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/api/health || exit 1
 
 # Run the application
-CMD ["./main"]
+CMD ["bin/ai-backend-generator"]
