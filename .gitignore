@@ -29,8 +29,8 @@ service-account.json
 *.dll
 *.so
 *.dylib
-gocraft
-ai-backend-generator
+/gocraft
+/ai-backend-generator
 
 # 🧪 Testing
 *.test
