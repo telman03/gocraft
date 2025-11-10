@@ -60,7 +60,7 @@ require (
 	github.com/valyala/fasthttp v1.64.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
 	gorm.io/driver/postgres v1.6.0
-	gorm.io/gorm v1.30.1
+	gorm.io/gorm v1.31.1
 )
 
 replace github.com/telman03/gocraft-backend => .
