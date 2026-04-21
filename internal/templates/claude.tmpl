@@ -1,0 +1,58 @@
+package ai
+
+import (
+	"context"
+	"errors"
+	"os"
+
+	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/option"
+)
+
+// ClaudeClient wraps the Anthropic SDK client
+type ClaudeClient struct {
+	client *anthropic.Client
+	model  anthropic.Model
+}
+
+// NewClaudeClient creates a new Claude API client
+func NewClaudeClient() *ClaudeClient {
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	if apiKey == "" {
+		panic("ANTHROPIC_API_KEY environment variable is required")
+	}
+
+	return &ClaudeClient{
+		client: anthropic.NewClient(option.WithAPIKey(apiKey)),
+		model:  anthropic.ModelClaude3_5SonnetLatest,
+	}
+}
+
+// Chat sends a message and returns the response text
+func (c *ClaudeClient) Chat(ctx context.Context, prompt string) (string, error) {
+	if prompt == "" {
+		return "", errors.New("prompt cannot be empty")
+	}
+
+	msg, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.F(c.model),
+		MaxTokens: anthropic.Int(1024),
+		Messages: anthropic.F([]anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
+		}),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if len(msg.Content) == 0 {
+		return "", errors.New("no content in response")
+	}
+
+	block, ok := msg.Content[0].(anthropic.TextBlock)
+	if !ok {
+		return "", errors.New("unexpected content block type")
+	}
+
+	return block.Text, nil
+}

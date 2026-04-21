@@ -15,15 +15,9 @@ import (
 // @Tags Validation
 // @Accept json
 // @Produce json
-// @Security BearerAuth
 // @Param data body models.GenerateRequest true "Features to validate"
 // @Router /validate [post]
 func ValidateFeatures(c *fiber.Ctx) error {
-	userID := c.Locals("user_id")
-	if userID == nil {
-		return utils.SendErrorResponse(c, fiber.StatusUnauthorized, "User not authenticated")
-	}
-
 	var req models.GenerateRequest
 	if err := c.BodyParser(&req); err != nil {
 		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "Invalid request format")

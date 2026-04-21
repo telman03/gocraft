@@ -8,11 +8,11 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	{{if .Auth}}"{{.ProjectName}}/auth"{{end}}
-	{{if .DB}}"{{.ProjectName}}/db"{{end}}
-	{{if .Router}}"{{.ProjectName}}/router"{{end}}
-	{{if .Config}}"{{.ProjectName}}/config"{{end}}
-	{{if .Logger}}"{{.ProjectName}}/logger"{{end}}
+	{{if .Auth}}"{{.ProjectName}}/internal/auth"{{end}}
+	{{if .DB}}"{{.ProjectName}}/internal/db"{{end}}
+	{{if .Router}}"{{.ProjectName}}/internal/router"{{end}}
+	{{if .Config}}"{{.ProjectName}}/internal/config"{{end}}
+	{{if .Logger}}"{{.ProjectName}}/internal/logger"{{end}}
 )
 
 func main() {

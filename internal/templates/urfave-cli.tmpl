@@ -1,0 +1,50 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/urfave/cli/v2"
+)
+
+func main() {
+	app := &cli.App{
+		Name:    "{{.ProjectName}}",
+		Usage:   "{{.ProjectName}} CLI",
+		Version: "1.0.0",
+		Commands: []*cli.Command{
+			{
+				Name:  "serve",
+				Usage: "Start the HTTP server",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "port",
+						Aliases: []string{"p"},
+						Value:   "8080",
+						Usage:   "Port to listen on",
+						EnvVars: []string{"PORT"},
+					},
+				},
+				Action: func(c *cli.Context) error {
+					port := c.String("port")
+					fmt.Printf("Starting server on port %s\n", port)
+					// TODO: start your server here
+					return nil
+				},
+			},
+			{
+				Name:  "version",
+				Usage: "Print version",
+				Action: func(c *cli.Context) error {
+					fmt.Println("{{.ProjectName}} v1.0.0")
+					return nil
+				},
+			},
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
+}

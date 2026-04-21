@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -319,16 +320,9 @@ func (s *InputSanitizer) ValidateJSONBody() fiber.Handler {
 			})
 		}
 		
-		// Convert body to string for validation
+		// Validate against path traversal only — SQL injection patterns produce too many
+		// false positives on legitimate project/feature names (e.g. "select", "delete")
 		bodyStr := string(body)
-		
-		// Validate against SQL injection
-		if s.containsSQLInjection(bodyStr) {
-			logSecurityViolation(c, "sql_injection_attempt", "Request body contains SQL injection patterns")
-			return sendValidationError(c, fiber.StatusBadRequest, ErrSQLInjectionDetected)
-		}
-		
-		// Validate against path traversal
 		if s.containsPathTraversal(bodyStr) {
 			logSecurityViolation(c, "path_traversal_attempt", "Request body contains path traversal patterns")
 			return sendValidationError(c, fiber.StatusBadRequest, ErrPathTraversalDetected)
@@ -431,6 +425,7 @@ func logSecurityViolation(c *fiber.Ctx, violationType, details string) {
 
 // RateLimiter provides basic rate limiting functionality
 type RateLimiter struct {
+	mu       sync.Mutex
 	requests map[string][]time.Time
 	limit    int
 	window   time.Duration
@@ -450,31 +445,35 @@ func (rl *RateLimiter) RateLimit() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ip := c.IP()
 		now := time.Now()
-		
-		// Clean old requests
+
+		rl.mu.Lock()
+
+		// Evict expired timestamps
 		if requests, exists := rl.requests[ip]; exists {
-			var validRequests []time.Time
-			for _, reqTime := range requests {
-				if now.Sub(reqTime) < rl.window {
-					validRequests = append(validRequests, reqTime)
+			var valid []time.Time
+			for _, t := range requests {
+				if now.Sub(t) < rl.window {
+					valid = append(valid, t)
 				}
 			}
-			rl.requests[ip] = validRequests
+			rl.requests[ip] = valid
 		}
-		
+
 		// Check rate limit
 		if len(rl.requests[ip]) >= rl.limit {
+			rl.mu.Unlock()
 			logSecurityViolation(c, "rate_limit_exceeded", fmt.Sprintf("IP: %s exceeded rate limit", ip))
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-				"error":   "Rate limit exceeded",
-				"code":    "RATE_LIMIT_EXCEEDED",
-				"details": fmt.Sprintf("Maximum %d requests per %v allowed", rl.limit, rl.window),
+				"error":       "Rate limit exceeded",
+				"code":        "RATE_LIMIT_EXCEEDED",
+				"details":     fmt.Sprintf("Maximum %d requests per %v allowed", rl.limit, rl.window),
 				"retry_after": rl.window.Seconds(),
 			})
 		}
-		
-		// Add current request
+
+		// Record current request
 		rl.requests[ip] = append(rl.requests[ip], now)
+		rl.mu.Unlock()
 		
 		return c.Next()
 	}

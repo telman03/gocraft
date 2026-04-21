@@ -1,0 +1,69 @@
+package db
+
+import (
+	"log"
+	"os"
+
+	badger "github.com/dgraph-io/badger/v4"
+)
+
+var DB *badger.DB
+
+// Connect opens the BadgerDB database
+func Connect() {
+	path := os.Getenv("BADGER_PATH")
+	if path == "" {
+		path = "./data/badger"
+	}
+
+	if err := os.MkdirAll(path, 0755); err != nil {
+		log.Fatal("Failed to create BadgerDB directory:", err)
+	}
+
+	opts := badger.DefaultOptions(path)
+	opts.Logger = nil // suppress internal logs; set to badger.DefaultLogger for debugging
+
+	db, err := badger.Open(opts)
+	if err != nil {
+		log.Fatal("Failed to open BadgerDB:", err)
+	}
+
+	DB = db
+	log.Printf("Connected to BadgerDB at %s", path)
+}
+
+// Close closes the database
+func Close() error {
+	if DB != nil {
+		return DB.Close()
+	}
+	return nil
+}
+
+// Set stores a key-value pair
+func Set(key, value []byte) error {
+	return DB.Update(func(txn *badger.Txn) error {
+		return txn.Set(key, value)
+	})
+}
+
+// Get retrieves a value by key
+func Get(key []byte) ([]byte, error) {
+	var val []byte
+	err := DB.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(key)
+		if err != nil {
+			return err
+		}
+		val, err = item.ValueCopy(nil)
+		return err
+	})
+	return val, err
+}
+
+// Delete removes a key
+func Delete(key []byte) error {
+	return DB.Update(func(txn *badger.Txn) error {
+		return txn.Delete(key)
+	})
+}

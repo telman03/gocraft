@@ -63,4 +63,3 @@ require (
 	gorm.io/gorm v1.30.1
 )
 
-replace github.com/telman03/gocraft-backend => .

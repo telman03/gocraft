@@ -19,6 +19,7 @@ type TemplateMapping struct {
 	IsInternalFile  bool // Files that go in internal/ directory
 	IsCmdFile       bool // Files that go in cmd/ directory
 	IsDocsFile      bool // Files that go in docs/ directory
+	IsFrameworkMain bool // Framework templates that replace main.go
 }
 
 // Feature mappings - maps feature names to their template destinations
@@ -75,12 +76,21 @@ var featureMappings = map[string]TemplateMapping{
 		IsRootFile:      true,
 	},
 
-	// Main application files
-	"main": {
-		SourcePath:      "main.tmpl",
-		DestinationPath: "cmd/{{.ProjectName}}/main.go",
-		IsRootFile:      false,
+	// Web frameworks — these replace main.go with a richer setup
+	"gin": {
+		SourcePath:      "gin.tmpl",
+		IsFrameworkMain: true,
 	},
+	"echo": {
+		SourcePath:      "echo.tmpl",
+		IsFrameworkMain: true,
+	},
+	"fiber": {
+		SourcePath:      "fiber.tmpl",
+		IsFrameworkMain: true,
+	},
+
+	// Internal packages
 	"router": {
 		SourcePath:      "router.tmpl",
 		DestinationPath: "internal/router/router.go",
@@ -143,10 +153,11 @@ var featureMappings = map[string]TemplateMapping{
 		DestinationPath: "internal/db/badger.go",
 		IsInternalFile:  true,
 	},
+	// migrations generates a SQL file, not a .go file
 	"migrations": {
 		SourcePath:      "migrations.tmpl",
-		DestinationPath: "internal/db/migrations.go",
-		IsInternalFile:  true,
+		DestinationPath: "migrations/001_init.sql",
+		IsRootFile:      true,
 	},
 
 	// ORM related
@@ -187,23 +198,6 @@ var featureMappings = map[string]TemplateMapping{
 	"claude": {
 		SourcePath:      "claude.tmpl",
 		DestinationPath: "internal/ai/claude.go",
-		IsInternalFile:  true,
-	},
-
-	// Web frameworks
-	"gin": {
-		SourcePath:      "gin.tmpl",
-		DestinationPath: "internal/framework/gin.go",
-		IsInternalFile:  true,
-	},
-	"echo": {
-		SourcePath:      "echo.tmpl",
-		DestinationPath: "internal/framework/echo.go",
-		IsInternalFile:  true,
-	},
-	"fiber": {
-		SourcePath:      "fiber.tmpl",
-		DestinationPath: "internal/framework/fiber.go",
 		IsInternalFile:  true,
 	},
 
@@ -263,12 +257,12 @@ var featureMappings = map[string]TemplateMapping{
 	// Testing
 	"testify": {
 		SourcePath:      "testify.tmpl",
-		DestinationPath: "internal/testing/testify.go",
+		DestinationPath: "internal/testing/helpers_test.go",
 		IsInternalFile:  true,
 	},
 	"gomock": {
 		SourcePath:      "gomock.tmpl",
-		DestinationPath: "internal/testing/gomock.go",
+		DestinationPath: "internal/testing/mocks_test.go",
 		IsInternalFile:  true,
 	},
 
@@ -292,26 +286,30 @@ var featureMappings = map[string]TemplateMapping{
 	},
 }
 
+func outputDir() string {
+	if dir := os.Getenv("OUTPUT_DIR"); dir != "" {
+		return dir
+	}
+	return "output"
+}
+
 func GenerateProject(projectName string, features []string) (string, error) {
-	// Fallback to a UUID if no project name is provided
 	id := projectName
 	if id == "" {
 		id = uuid.New().String()
 	}
 
-	// Sanitize project name for file system (replace spaces and special characters)
 	id = strings.ReplaceAll(id, " ", "-")
 	id = strings.ToLower(id)
 
-	projectPath := filepath.Join("output", id)
+	base := outputDir()
+	projectPath := filepath.Join(base, id)
 
-	// Create project directory
-	err := os.MkdirAll(projectPath, os.ModePerm)
-	if err != nil {
+	if err := os.MkdirAll(projectPath, os.ModePerm); err != nil {
 		return "", fmt.Errorf("failed to create project directory: %v", err)
 	}
 
-	// Track which modules are selected for main.go
+	// Build feature flags once before any rendering
 	flags := map[string]bool{
 		"Auth":          false,
 		"DB":            false,
@@ -326,139 +324,119 @@ func GenerateProject(projectName string, features []string) (string, error) {
 		"Middleware":    false,
 		"Config":        false,
 	}
-
-	// Pre-process features to set flags before template generation
 	for _, feature := range features {
 		updateFlags(strings.ToLower(feature), flags)
 	}
 
-	// Always generate .env.example file first
-	envTemplatePath := filepath.Join("internal", "templates", "env.tmpl")
-	envDestPath := filepath.Join(projectPath, ".env.example")
-	
+	// Build template data once — include both Flags.X and flat .X for template compatibility
 	templateData := map[string]interface{}{
-		"ProjectName": projectName,
-		"Features":    features,
-		"Flags":       flags,
+		"ProjectName":   projectName,
+		"Features":      features,
+		"Flags":         flags,
+		"Auth":          flags["Auth"],
+		"DB":            flags["DB"],
+		"Router":        flags["Router"],
+		"OpenAI":        flags["OpenAI"],
+		"GRPC":          flags["gRPC"],
+		"WebSocket":     flags["WebSocket"],
+		"CLI":           flags["CLI"],
+		"Testing":       flags["Testing"],
+		"Observability": flags["Observability"],
+		"Logger":        flags["Logging"],
+		"Logging":       flags["Logging"],
+		"Middleware":    flags["Middleware"],
+		"Config":        flags["Config"],
 	}
 
-	if _, err := os.Stat(envTemplatePath); err == nil {
-		err = utils.ApplyTemplate(envTemplatePath, envDestPath, templateData)
-		if err != nil {
-			return "", fmt.Errorf("failed to render .env.example: %v", err)
-		}
-	}
-
-	// Always generate .gitignore file
-	gitignoreTemplatePath := filepath.Join("internal", "templates", "gitignore.tmpl")
-	gitignoreDestPath := filepath.Join(projectPath, ".gitignore")
-	
-	if _, err := os.Stat(gitignoreTemplatePath); err == nil {
-		err = utils.ApplyTemplate(gitignoreTemplatePath, gitignoreDestPath, templateData)
-		if err != nil {
-			return "", fmt.Errorf("failed to render .gitignore: %v", err)
+	// Always generate .env.example and .gitignore
+	for _, pair := range []struct{ tmpl, dest string }{
+		{"env.tmpl", ".env.example"},
+		{"gitignore.tmpl", ".gitignore"},
+	} {
+		src := filepath.Join("internal", "templates", pair.tmpl)
+		if _, err := os.Stat(src); err == nil {
+			if err := utils.ApplyTemplate(src, filepath.Join(projectPath, pair.dest), templateData); err != nil {
+				return "", fmt.Errorf("failed to render %s: %v", pair.dest, err)
+			}
 		}
 	}
 
 	// Process each feature
+	var frameworkMainRendered bool
 	for _, feature := range features {
 		feature = strings.ToLower(feature)
 
-		// Update flags for main.go
-		updateFlags(feature, flags)
-
-		// Handle special cases
+		// postgresql is an alias for the db template
 		if feature == "postgresql" {
-			feature = "db" // Map postgresql to db template
+			feature = "db"
 		}
 
-		// Skip env and gitignore as they're already handled above
+		// .env.example and .gitignore already written above
 		if feature == "env" || feature == "env-config" || feature == "gitignore" {
 			continue
 		}
 
-		// Get template mapping
 		mapping, exists := featureMappings[feature]
 		if !exists {
-			// Skip silently if template doesn't exist
 			continue
 		}
 
-		// Build full paths
 		sourcePath := filepath.Join("internal", "templates", mapping.SourcePath)
-		destPath := filepath.Join(projectPath, mapping.DestinationPath)
-
-		// Create destination directory if needed
-		destDir := filepath.Dir(destPath)
-		err := os.MkdirAll(destDir, os.ModePerm)
-		if err != nil {
-			return "", fmt.Errorf("failed to create directory %s: %v", destDir, err)
-		}
-
-		// Check if template file exists
 		if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
-			// Skip silently if template file doesn't exist
 			continue
 		}
 
-		// Update template data for this specific feature
-		templateData := map[string]interface{}{
-			"ProjectName": projectName,
-			"Features":    features,
-			"Flags":       flags,
+		var destPath string
+		if mapping.IsFrameworkMain {
+			// Framework templates generate the main entry point
+			cmdDir := filepath.Join(projectPath, "cmd", projectName)
+			if err := os.MkdirAll(cmdDir, 0755); err != nil {
+				return "", fmt.Errorf("failed to create cmd directory: %v", err)
+			}
+			destPath = filepath.Join(cmdDir, "main.go")
+			frameworkMainRendered = true
+		} else {
+			destPath = filepath.Join(projectPath, mapping.DestinationPath)
+			if err := os.MkdirAll(filepath.Dir(destPath), os.ModePerm); err != nil {
+				return "", fmt.Errorf("failed to create directory for %s: %v", destPath, err)
+			}
 		}
 
-		// Render template
-		err = utils.ApplyTemplate(sourcePath, destPath, templateData)
-		if err != nil {
+		if err := utils.ApplyTemplate(sourcePath, destPath, templateData); err != nil {
 			return "", fmt.Errorf("failed to render template %s: %v", sourcePath, err)
 		}
 	}
 
-	// Render main.go with feature flags if main template exists
-	mainTemplatePath := filepath.Join("internal", "templates", "main.tmpl")
-	if _, err := os.Stat(mainTemplatePath); err == nil {
-		// Create cmd directory structure
-		cmdDir := filepath.Join(projectPath, "cmd", projectName)
-		err = os.MkdirAll(cmdDir, 0755)
-		if err != nil {
-			return "", fmt.Errorf("failed to create cmd directory: %v", err)
-		}
-		
-		mainDestPath := filepath.Join(cmdDir, "main.go")
-		templateData := map[string]interface{}{
-			"ProjectName": projectName,
-			"Features":    features,
-			"Flags":       flags,
-		}
-
-		err = utils.ApplyTemplate(mainTemplatePath, mainDestPath, templateData)
-		if err != nil {
-			return "", fmt.Errorf("failed to render main.go: %v", err)
+	// Fall back to main.tmpl if no framework template was used
+	if !frameworkMainRendered {
+		mainTemplatePath := filepath.Join("internal", "templates", "main.tmpl")
+		if _, err := os.Stat(mainTemplatePath); err == nil {
+			cmdDir := filepath.Join(projectPath, "cmd", projectName)
+			if err := os.MkdirAll(cmdDir, 0755); err != nil {
+				return "", fmt.Errorf("failed to create cmd directory: %v", err)
+			}
+			mainDestPath := filepath.Join(cmdDir, "main.go")
+			if err := utils.ApplyTemplate(mainTemplatePath, mainDestPath, templateData); err != nil {
+				return "", fmt.Errorf("failed to render main.go: %v", err)
+			}
 		}
 	}
 
-	// Create go.mod file
-	err = createGoMod(projectPath, features)
-	if err != nil {
+	if err := createGoMod(projectPath, projectName, features); err != nil {
 		return "", fmt.Errorf("failed to create go.mod: %v", err)
 	}
 
-	// Zip the folder and return path
-	zipPath := filepath.Join("output", id+".zip")
-	err = utils.ZipFolder(projectPath, zipPath)
-	if err != nil {
+	zipPath := filepath.Join(base, id+".zip")
+	if err := utils.ZipFolder(projectPath, zipPath); err != nil {
 		return "", fmt.Errorf("failed to create zip: %v", err)
 	}
 
-	// Schedule cleanup of old files (older than 1 hour)
 	go func() {
-		if err := utils.CleanupOldFiles("output", 1*time.Hour); err != nil {
+		if err := utils.CleanupOldFiles(base, 1*time.Hour); err != nil {
 			fmt.Printf("Cleanup error: %v\n", err)
 		}
 	}()
 
-	// Schedule cleanup of current files after 10 minutes (enough time for download)
 	utils.CleanupAfterDownload(zipPath, projectPath, 10*time.Minute)
 
 	return zipPath, nil
@@ -493,77 +471,93 @@ func updateFlags(feature string, flags map[string]bool) {
 	}
 }
 
-func createGoMod(projectPath string, features []string) error {
-	// Extract project name from path
-	projectName := filepath.Base(projectPath)
-	
-	// Create a proper module name (avoid single words that might conflict)
+func createGoMod(projectPath, projectName string, features []string) error {
 	moduleName := projectName
-	if projectName == "go" || len(projectName) < 3 {
+	// Ensure the module name is valid (not a bare reserved word, not too short)
+	if len(moduleName) < 2 || moduleName == "go" {
 		moduleName = fmt.Sprintf("github.com/user/%s", projectName)
 	}
-	
-	// Create a basic go.mod file
-	goModContent := fmt.Sprintf("module %s\n\n", moduleName)
-	goModContent += "go 1.21\n\n"
-	goModContent += "require (\n"
-	goModContent += "\tgithub.com/gofiber/fiber/v2 v2.52.0\n"
 
-	// Add dependencies based on features
-	dependencies := getDependencies(features)
-	for _, dep := range dependencies {
-		goModContent += dep + "\n"
-	}
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("module %s\n\ngo 1.21\n\nrequire (\n", moduleName))
 
-	goModContent += ")\n"
-
-	goModPath := filepath.Join(projectPath, "go.mod")
-	return os.WriteFile(goModPath, []byte(goModContent), 0644)
-}
-
-func getDependencies(features []string) []string {
-	var deps []string
-
-	for _, feature := range features {
-		feature = strings.ToLower(feature)
-
-		switch feature {
-		case "swagger":
-			deps = append(deps, "\tgithub.com/gofiber/swagger v0.1.14")
-		case "grpc":
-			deps = append(deps, "\tgoogle.golang.org/grpc v1.60.1")
-			deps = append(deps, "\tgoogle.golang.org/protobuf v1.32.0")
-		case "gin":
-			deps = append(deps, "\tgithub.com/gin-gonic/gin v1.9.1")
-		case "echo":
-			deps = append(deps, "\tgithub.com/labstack/echo/v4 v4.11.4")
-		case "fiber":
-			deps = append(deps, "\tgithub.com/gofiber/fiber/v2 v2.52.0")
-		case "postgresql":
-			deps = append(deps, "\tgithub.com/lib/pq v1.10.9")
-		case "mysql":
-			deps = append(deps, "\tgithub.com/go-sql-driver/mysql v1.7.1")
-		case "gorm":
-			deps = append(deps, "\tgorm.io/gorm v1.25.5")
-		case "redis":
-			deps = append(deps, "\tgithub.com/redis/go-redis/v9 v9.3.1")
-		case "mongodb":
-			deps = append(deps, "\tgo.mongodb.org/mongo-driver v1.13.1")
-		case "badger":
-			deps = append(deps, "\tgithub.com/dgraph-io/badger/v4 v4.2.0")
-		case "cobra":
-			deps = append(deps, "\tgithub.com/spf13/cobra v1.8.0")
-		case "urfave-cli":
-			deps = append(deps, "\tgithub.com/urfave/cli/v2 v2.27.1")
-		case "testify":
-			deps = append(deps, "\tgithub.com/stretchr/testify v1.8.4")
-		case "gomock":
-			deps = append(deps, "\tgo.uber.org/mock v0.4.0")
-		case "observability":
-			deps = append(deps, "\tgo.uber.org/zap v1.26.0")
-			deps = append(deps, "\tgithub.com/prometheus/client_golang v1.17.0")
+	seen := map[string]bool{}
+	addDep := func(dep string) {
+		if !seen[dep] {
+			seen[dep] = true
+			sb.WriteString("\t" + dep + "\n")
 		}
 	}
 
-	return deps
+	// Always include fiber as the default HTTP framework
+	addDep("github.com/gofiber/fiber/v2 v2.52.0")
+	addDep("github.com/joho/godotenv v1.5.1")
+
+	for _, feature := range features {
+		switch strings.ToLower(feature) {
+		case "gin":
+			addDep("github.com/gin-gonic/gin v1.9.1")
+			addDep("github.com/gin-contrib/cors v1.4.0")
+		case "echo":
+			addDep("github.com/labstack/echo/v4 v4.11.4")
+		case "fiber":
+			// already included above
+		case "auth", "jwt", "authentication":
+			addDep("github.com/golang-jwt/jwt/v5 v5.2.0")
+			addDep("golang.org/x/crypto v0.17.0")
+		case "oauth2":
+			addDep("golang.org/x/oauth2 v0.15.0")
+			addDep("github.com/golang-jwt/jwt/v5 v5.2.0")
+		case "gorm":
+			addDep("gorm.io/gorm v1.25.5")
+			addDep("gorm.io/driver/postgres v1.5.4")
+			addDep("gorm.io/driver/mysql v1.5.2")
+			addDep("gorm.io/driver/sqlite v1.5.4")
+		case "postgresql", "db", "database":
+			addDep("github.com/lib/pq v1.10.9")
+		case "mysql":
+			addDep("github.com/go-sql-driver/mysql v1.7.1")
+		case "sqlite":
+			addDep("github.com/mattn/go-sqlite3 v1.14.19")
+		case "mongodb":
+			addDep("go.mongodb.org/mongo-driver v1.13.1")
+		case "redis":
+			addDep("github.com/go-redis/redis/v8 v8.11.5")
+		case "badger":
+			addDep("github.com/dgraph-io/badger/v4 v4.2.0")
+		case "swagger":
+			addDep("github.com/gofiber/swagger v0.1.14")
+			addDep("github.com/swaggo/swag v1.16.3")
+		case "grpc", "protobuf":
+			addDep("google.golang.org/grpc v1.60.1")
+			addDep("google.golang.org/protobuf v1.32.0")
+		case "websocket", "websockets":
+			addDep("github.com/gofiber/websocket/v2 v2.2.1")
+			addDep("github.com/gorilla/websocket v1.5.1")
+		case "openai":
+			addDep("github.com/sashabaranov/go-openai v1.17.9")
+		case "openrouter":
+			addDep("github.com/sashabaranov/go-openai v1.17.9")
+		case "claude":
+			addDep("github.com/anthropics/anthropic-sdk-go v0.1.0")
+		case "logger", "logging":
+			addDep("go.uber.org/zap v1.26.0")
+			addDep("gopkg.in/natefinch/lumberjack.v2 v2.2.1")
+		case "observability", "prometheus":
+			addDep("go.uber.org/zap v1.26.0")
+			addDep("github.com/prometheus/client_golang v1.17.0")
+		case "cobra":
+			addDep("github.com/spf13/cobra v1.8.0")
+		case "urfave-cli":
+			addDep("github.com/urfave/cli/v2 v2.27.1")
+		case "testify", "testing":
+			addDep("github.com/stretchr/testify v1.8.4")
+		case "gomock":
+			addDep("go.uber.org/mock v0.4.0")
+		}
+	}
+
+	sb.WriteString(")\n")
+
+	return os.WriteFile(filepath.Join(projectPath, "go.mod"), []byte(sb.String()), 0644)
 }

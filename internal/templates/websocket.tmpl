@@ -1,4 +1,4 @@
-package main
+package websocket
 
 import (
 	"context"
@@ -648,17 +648,3 @@ func SetupFiberWebSocketRoutes(app *fiber.App, wsManager *WebSocketManager) {
 	}))
 }
 
-// Main function to start WebSocket server
-func main() {
-	app := fiber.New()
-
-	// Initialize WebSocket manager
-	wsManager := NewWebSocketManager()
-	go wsManager.Start()
-
-	// Setup WebSocket routes
-	SetupFiberWebSocketRoutes(app, wsManager)
-
-	// Start server
-	log.Fatal(app.Listen(":8080"))
-} 

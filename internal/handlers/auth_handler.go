@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/subtle"
 	"log"
 	"time"
 
@@ -127,8 +128,8 @@ func VerifyOTP(c *fiber.Ctx) error {
 		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "OTP expired. Please request a new one.")
 	}
 
-	// Check if OTP matches
-	if user.OTP != body.OTP {
+	// Constant-time comparison to prevent timing attacks
+	if subtle.ConstantTimeCompare([]byte(user.OTP), []byte(body.OTP)) != 1 {
 		return utils.SendErrorResponse(c, fiber.StatusBadRequest, "Invalid OTP code.")
 	}
 
@@ -194,7 +195,9 @@ func ResendOTP(c *fiber.Ctx) error {
 	// Update user with new OTP
 	user.OTP = otp
 	user.OTPExpiresAt = otpExpiresAt
-	database.DB.Save(&user)
+	if err := database.DB.Save(&user).Error; err != nil {
+		return utils.SendErrorResponse(c, fiber.StatusInternalServerError, "Failed to update OTP")
+	}
 
 	// Send OTP email
 	go func() {

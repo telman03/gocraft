@@ -1,0 +1,33 @@
+package testing
+
+//go:generate go run go.uber.org/mock/mockgen -source=../interfaces.go -destination=mocks_gen_test.go -package=testing
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+)
+
+// ExampleRepository is a sample interface to mock.
+// Replace with your actual interface definitions.
+type ExampleRepository interface {
+	FindByID(id int) (string, error)
+	Save(value string) error
+}
+
+// ExampleServiceTest demonstrates testing with gomock
+func TestExampleService(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// mockRepo := NewMockExampleRepository(ctrl)
+	// mockRepo.EXPECT().FindByID(1).Return("result", nil)
+
+	// svc := NewExampleService(mockRepo)
+	// result, err := svc.Get(1)
+	// assert.NoError(t, err)
+	// assert.Equal(t, "result", result)
+
+	assert.True(t, true, "placeholder — replace with real mock tests")
+}

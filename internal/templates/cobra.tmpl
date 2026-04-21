@@ -1,0 +1,46 @@
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "{{.ProjectName}}",
+	Short: "{{.ProjectName}} CLI",
+	Long:  "Command-line interface for {{.ProjectName}}",
+}
+
+var serveCmd = &cobra.Command{
+	Use:   "serve",
+	Short: "Start the HTTP server",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		port, _ := cmd.Flags().GetString("port")
+		fmt.Printf("Starting server on port %s\n", port)
+		// TODO: start your server here
+		return nil
+	},
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print version",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("{{.ProjectName}} v1.0.0")
+	},
+}
+
+func init() {
+	serveCmd.Flags().StringP("port", "p", "8080", "Port to listen on")
+	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(versionCmd)
+}
+
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

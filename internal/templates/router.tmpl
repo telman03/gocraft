@@ -1,0 +1,45 @@
+package router
+
+import (
+	{{if contains .Features "gin"}}"github.com/gin-gonic/gin"{{end}}
+	{{if contains .Features "echo"}}"github.com/labstack/echo/v4"{{end}}
+	{{if contains .Features "fiber"}}"github.com/gofiber/fiber/v2"{{end}}
+)
+
+{{if contains .Features "gin"}}
+// SetupRoutes registers all routes on the Gin engine
+func SetupRoutes(r *gin.Engine) {
+	api := r.Group("/api/v1")
+
+	// Health
+	api.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+
+	// TODO: register your route handlers here
+}
+{{else if contains .Features "echo"}}
+// SetupRoutes registers all routes on the Echo instance
+func SetupRoutes(e *echo.Echo) {
+	api := e.Group("/api/v1")
+
+	// Health
+	api.GET("/health", func(c echo.Context) error {
+		return c.JSON(200, map[string]string{"status": "ok"})
+	})
+
+	// TODO: register your route handlers here
+}
+{{else}}
+// SetupRoutes registers all routes on the Fiber app
+func SetupRoutes(app *fiber.App) {
+	api := app.Group("/api/v1")
+
+	// Health
+	api.Get("/health", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
+
+	// TODO: register your route handlers here
+}
+{{end}}

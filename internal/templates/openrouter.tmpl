@@ -1,0 +1,59 @@
+package ai
+
+import (
+	"context"
+	"errors"
+	"os"
+
+	openai "github.com/sashabaranov/go-openai"
+)
+
+// OpenRouterClient wraps the OpenAI client configured for OpenRouter
+type OpenRouterClient struct {
+	client *openai.Client
+	model  string
+}
+
+// NewOpenRouterClient creates a client pointed at the OpenRouter API
+func NewOpenRouterClient() *OpenRouterClient {
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	if apiKey == "" {
+		panic("OPENROUTER_API_KEY environment variable is required")
+	}
+
+	model := os.Getenv("OPENROUTER_MODEL")
+	if model == "" {
+		model = "openai/gpt-4o-mini"
+	}
+
+	cfg := openai.DefaultConfig(apiKey)
+	cfg.BaseURL = "https://openrouter.ai/api/v1"
+
+	return &OpenRouterClient{
+		client: openai.NewClientWithConfig(cfg),
+		model:  model,
+	}
+}
+
+// Chat sends a prompt and returns the completion text
+func (c *OpenRouterClient) Chat(ctx context.Context, prompt string) (string, error) {
+	if prompt == "" {
+		return "", errors.New("prompt cannot be empty")
+	}
+
+	resp, err := c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model: c.model,
+		Messages: []openai.ChatCompletionMessage{
+			{Role: openai.ChatMessageRoleUser, Content: prompt},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", errors.New("no choices returned from OpenRouter")
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}

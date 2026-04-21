@@ -192,7 +192,7 @@ func OptionalAuth(c *fiber.Ctx) error {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(auth.GetJWTSecret()), nil
+		return auth.GetJWTSecret(), nil
 	})
 
 	// If token is invalid, continue as guest

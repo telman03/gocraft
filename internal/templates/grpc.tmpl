@@ -1,4 +1,4 @@
-package main
+package grpc
 
 import (
 	"context"
@@ -543,25 +543,3 @@ type Claims struct {
 	Email  string `json:"email"`
 }
 
-// Main function to start both gRPC and gRPC-Gateway servers
-func main() {
-	// Initialize database
-	db := initializeDatabase()
-	
-	// Start gRPC server in goroutine
-	go func() {
-		if err := StartGRPCServer("9090", db); err != nil {
-			fmt.Printf("Failed to start gRPC server: %v\n", err)
-		}
-	}()
-	
-	// Start gRPC-Gateway server
-	if err := StartGRPCGateway("9090", "8080"); err != nil {
-		fmt.Printf("Failed to start gRPC-Gateway server: %v\n", err)
-	}
-}
-
-func initializeDatabase() Database {
-	// Implementation for database initialization
-	return nil
-} 

@@ -1,0 +1,55 @@
+package observability
+
+import (
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
+)
+
+var (
+	Log *zap.Logger
+
+	RequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_requests_total",
+		Help: "Total number of HTTP requests",
+	}, []string{"method", "path", "status"})
+
+	RequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "http_request_duration_seconds",
+		Help:    "HTTP request duration in seconds",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"method", "path"})
+)
+
+// Init initialises the logger and registers Prometheus metrics
+func Init() {
+	level := zap.InfoLevel
+	if os.Getenv("APP_ENV") == "development" {
+		level = zap.DebugLevel
+	}
+
+	cfg := zap.NewProductionConfig()
+	cfg.Level = zap.NewAtomicLevelAt(level)
+	logger, err := cfg.Build()
+	if err != nil {
+		panic("failed to initialise logger: " + err.Error())
+	}
+	Log = logger
+	zap.ReplaceGlobals(logger)
+}
+
+// MetricsHandler returns the Prometheus HTTP handler
+func MetricsHandler() http.Handler {
+	return promhttp.Handler()
+}
+
+// TrackRequest records request count and duration
+func TrackRequest(method, path, status string, duration time.Duration) {
+	RequestsTotal.WithLabelValues(method, path, status).Inc()
+	RequestDuration.WithLabelValues(method, path).Observe(duration.Seconds())
+}
