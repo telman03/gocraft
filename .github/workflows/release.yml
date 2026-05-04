@@ -39,7 +39,7 @@ jobs:
         GOOS=windows GOARCH=amd64 go build -o gocraft-windows-amd64.exe ./cmd/gocraft
 
     - name: Create Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         files: |
           gocraft-linux-amd64
