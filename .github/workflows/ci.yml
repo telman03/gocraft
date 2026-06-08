@@ -157,7 +157,7 @@ jobs:
         go test -timeout=10m -run="Performance|Concurrent|LargeDataset" ./tests/unit/ -v || echo "Performance tests failed (expected in CI)"
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       if: success() && hashFiles('coverage.out') != ''
       with:
         file: ./coverage.out
