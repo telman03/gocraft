@@ -40,7 +40,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe // indirect
-
 	golang.org/x/mod v0.34.0 // indirect
 	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
@@ -61,5 +60,5 @@ require (
 	github.com/valyala/fasthttp v1.64.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	gorm.io/driver/postgres v1.6.0
-	gorm.io/gorm v1.31.1
+	gorm.io/gorm v1.31.2
 )
